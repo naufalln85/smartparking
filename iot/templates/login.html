@@ -15,34 +15,44 @@
 
     body {
       height: 100vh;
-      background: linear-gradient(135deg, #a8edea, #fed6e3);
+      background: linear-gradient(135deg, #c2f0ff, #f8e1f4);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #333;
     }
 
-    .login-card {
+    .auth-card {
       background: white;
-      border-radius: 25px;
+      border-radius: 20px;
       padding: 2.5rem;
       box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
       width: 100%;
       max-width: 400px;
-      position: relative;
       animation: fadeIn 0.6s ease-in-out;
+      position: relative;
     }
 
-    .login-card h2 {
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .auth-card h2 {
       text-align: center;
       margin-bottom: 1.5rem;
-      color: #4a90e2;
-      font-size: 1.8rem;
+      color: #4b6cb7;
     }
 
     label {
       display: block;
       margin-bottom: 0.5rem;
+      color: #444;
       font-weight: 500;
     }
 
@@ -52,23 +62,23 @@
       padding: 0.75rem;
       margin-bottom: 1.2rem;
       border: 1px solid #ccc;
-      border-radius: 12px;
+      border-radius: 10px;
       transition: all 0.3s;
     }
 
     input:focus {
-      border-color: #4a90e2;
-      box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+      border-color: #4b6cb7;
+      box-shadow: 0 0 0 3px rgba(75, 108, 183, 0.2);
       outline: none;
     }
 
     button {
       width: 100%;
-      background: linear-gradient(135deg, #84fab0, #8fd3f4);
+      background: linear-gradient(135deg, #66e0ff, #84fab0);
       color: #fff;
       padding: 0.8rem;
       border: none;
-      border-radius: 12px;
+      border-radius: 10px;
       font-size: 1rem;
       font-weight: 600;
       cursor: pointer;
@@ -76,22 +86,22 @@
     }
 
     button:hover {
-      opacity: 0.92;
+      opacity: 0.9;
     }
 
-    .register-link {
+    .extra-link {
       text-align: center;
-      margin-top: 1.2rem;
-      color: #555;
+      margin-top: 1rem;
+      color: #666;
     }
 
-    .register-link a {
-      color: #4a90e2;
-      font-weight: 600;
+    .extra-link a {
+      color: #4b6cb7;
       text-decoration: none;
+      font-weight: 600;
     }
 
-    .register-link a:hover {
+    .extra-link a:hover {
       text-decoration: underline;
     }
 
@@ -110,19 +120,8 @@
       transform: scale(1.15);
     }
 
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(25px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
     @media (max-width: 480px) {
-      .login-card {
+      .auth-card {
         margin: 1rem;
         padding: 2rem;
       }
@@ -130,9 +129,9 @@
   </style>
 </head>
 <body>
-  <div class="login-card">
+  <div class="auth-card">
     <a href="{{ url_for('dashboard') }}" class="close-btn">❌</a>
-    <h2>Login Smart Parking</h2>
+    <h2>Login</h2>
     <form method="POST">
       <label for="username">Username</label>
       <input type="text" name="username" id="username" required>
@@ -140,9 +139,9 @@
       <label for="password">Password</label>
       <input type="password" name="password" id="password" required>
 
-      <button type="submit">Masuk</button>
+      <button type="submit">Login</button>
     </form>
-    <div class="register-link">
+    <div class="extra-link">
       Belum punya akun? <a href="{{ url_for('register') }}">Daftar di sini</a>
     </div>
   </div>

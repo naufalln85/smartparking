@@ -6,6 +6,7 @@
   <title>Register - Smart Parking</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <style>
+    /* Gunakan style yang sama dengan login */
     * {
       margin: 0;
       padding: 0;
@@ -21,7 +22,7 @@
       justify-content: center;
     }
 
-    .register-card {
+    .auth-card {
       background: white;
       border-radius: 20px;
       padding: 2.5rem;
@@ -29,6 +30,7 @@
       width: 100%;
       max-width: 400px;
       animation: fadeIn 0.6s ease-in-out;
+      position: relative;
     }
 
     @keyframes fadeIn {
@@ -42,7 +44,7 @@
       }
     }
 
-    .register-card h2 {
+    .auth-card h2 {
       text-align: center;
       margin-bottom: 1.5rem;
       color: #4b6cb7;
@@ -88,26 +90,48 @@
       opacity: 0.9;
     }
 
-    .login-link {
+    .extra-link {
       text-align: center;
       margin-top: 1rem;
       color: #666;
     }
 
-    .login-link a {
+    .extra-link a {
       color: #4b6cb7;
       text-decoration: none;
       font-weight: 600;
     }
 
-    .login-link a:hover {
+    .extra-link a:hover {
       text-decoration: underline;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 15px;
+      left: 20px;
+      font-size: 22px;
+      text-decoration: none;
+      color: #ff4d6d;
+      font-weight: bold;
+      transition: transform 0.2s;
+    }
+
+    .close-btn:hover {
+      transform: scale(1.15);
+    }
+
+    @media (max-width: 480px) {
+      .auth-card {
+        margin: 1rem;
+        padding: 2rem;
+      }
     }
   </style>
 </head>
 <body>
-<a href="{{ url_for('dashboard') }}" class="back-btn">❌</a>
-  <div class="register-card">
+  <div class="auth-card">
+    <a href="{{ url_for('dashboard') }}" class="close-btn">❌</a>
     <h2>Daftar Akun</h2>
     <form method="POST">
       <label for="username">Username</label>
@@ -118,7 +142,7 @@
 
       <button type="submit">Daftar</button>
     </form>
-    <div class="login-link">
+    <div class="extra-link">
       Sudah punya akun? <a href="{{ url_for('login') }}">Login di sini</a>
     </div>
   </div>

@@ -4,9 +4,54 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Smart Parking Dashboard</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
 
+  <!-- ✅ Tambahan Loading Screen Style -->
+  <style>
+    #loading-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(to bottom right, #dff1f9, #edf5fc);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      transition: opacity 0.8s ease;
+    }
+
+    #loading-screen.fade-out {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .spinner {
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #3498db;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    #loading-screen p {
+      font-size: 18px;
+      color: #333;
+      font-family: 'Segoe UI', sans-serif;
+    }
+  </style>
+
+  <!-- (style modal + script tetap milikmu dan tidak disentuh) -->
   <style>
     .slot.booked-own {
       background-color: #007bff !important;
@@ -22,6 +67,53 @@
     }
     .admin-link a:hover {
       text-decoration: underline;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 999;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-content {
+      background-color: #fff;
+      margin: 15% auto;
+      padding: 30px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .modal-icon {
+      font-size: 40px;
+      margin-bottom: 15px;
+    }
+
+    .modal-buttons button {
+      margin: 10px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    #modalYes {
+      background-color: #28a745;
+      color: white;
+    }
+
+    #modalCancel {
+      background-color: #dc3545;
+      color: white;
     }
   </style>
 
@@ -40,7 +132,8 @@
         const bookings = data.bookings || [];
         const currentUser = data.current_user;
 
-        let filledCount = 3; // Static filled slot: A4, A5, B4
+        let filledCount = 0;
+        let bookingCount = 0;
 
         document.querySelectorAll('.slot').forEach(slot => {
           const id = slot.dataset.id;
@@ -50,19 +143,17 @@
           const isBooked = bookings.find(b => b.slot_id === id);
           const isFilled = statusMap[id] === "Isi";
 
-          if (isBooked) {
-            if (isBooked.user_id === currentUser) {
-              slot.classList.add("booked-own");
-              slot.title = "Booking Anda";
-            } else {
-              slot.classList.add("booked");
-              slot.title = "Sudah dibooking";
-              {% if session['username'] == 'admin' %}
-                if (isBooked.username) {
-                  slot.title += " oleh " + isBooked.username;
-                }
-              {% endif %}
+          if (isBooked && isBooked.user_id === currentUser) {
+            slot.classList.add("booked-own");
+            slot.title = "Booking Anda";
+            bookingCount++;
+          } else if (isBooked) {
+            slot.classList.add("booked");
+            slot.title = "Sudah dibooking";
+            if (isBooked.username) {
+              slot.title += " oleh " + isBooked.username;
             }
+            bookingCount++;
           } else if (isFilled) {
             slot.classList.add("filled");
             slot.title = "Terisi";
@@ -72,41 +163,45 @@
             slot.title = "Kosong";
           }
 
-          // Klik Handler
           slot.onclick = () => {
             if (slot.classList.contains("empty")) {
               if (!currentUser) {
-                const confirmLogin = confirm(`Slot ${id} kosong. Login untuk booking?`);
-                if (confirmLogin) {
-                  window.location.href = "/login";
-                }
+                showModal(`Slot ${id} kosong. Login untuk booking?`, (confirmLogin) => {
+                  if (confirmLogin) {
+                    window.location.href = "/login";
+                  }
+                });
               } else {
-                const confirmBook = confirm(`Ingin booking slot ${id}?`);
-                if (confirmBook) {
+                showModal(`Ingin booking slot ${id}?`, (confirmBook) => {
+                  if (confirmBook) {
+                    const form = document.createElement("form");
+                    form.method = "POST";
+                    form.action = `/book/${id}`;
+                    document.body.appendChild(form);
+                    form.submit();
+                  }
+                });
+              }
+            } else if (slot.classList.contains("booked-own")) {
+              showModal(`Anda telah booking slot ${id}. Lepaskan?`, (confirmUnbook) => {
+                if (confirmUnbook) {
                   const form = document.createElement("form");
                   form.method = "POST";
-                  form.action = `/book/${id}`;
+                  form.action = `/unbook/${id}`;
                   document.body.appendChild(form);
                   form.submit();
                 }
-              }
-            } else if (slot.classList.contains("booked-own")) {
-              const confirmUnbook = confirm(`Anda telah booking slot ${id}. Lepaskan?`);
-              if (confirmUnbook) {
-                const form = document.createElement("form");
-                form.method = "POST";
-                form.action = `/unbook/${id}`;
-                document.body.appendChild(form);
-                form.submit();
-              }
+              });
             }
           };
         });
 
-        // Update statistik
-        document.getElementById("total-slot").textContent = 10;
+        const totalSlot = document.querySelectorAll('.slot').length;
+        const sisaSlot = totalSlot - filledCount - bookingCount;
+
+        document.getElementById("total-slot").textContent = totalSlot;
         document.getElementById("slot-terisi").textContent = filledCount;
-        document.getElementById("sisa-slot").textContent = 10 - filledCount;
+        document.getElementById("sisa-slot").textContent = sisaSlot;
 
       } catch (err) {
         console.error("Gagal ambil status:", err);
@@ -115,10 +210,48 @@
 
     setInterval(updateSlots, 2000);
     window.onload = updateSlots;
+
+    function showModal(message, callback) {
+      const modal = document.getElementById("customModal");
+      const modalText = document.getElementById("modalText");
+      const yesBtn = document.getElementById("modalYes");
+      const cancelBtn = document.getElementById("modalCancel");
+
+      modalText.textContent = message;
+      modal.style.display = "flex";
+
+      const cleanup = () => {
+        modal.style.display = "none";
+        yesBtn.onclick = null;
+        cancelBtn.onclick = null;
+      };
+
+      yesBtn.onclick = () => {
+        cleanup();
+        callback(true);
+      };
+
+      cancelBtn.onclick = () => {
+        cleanup();
+        callback(false);
+      };
+    }
   </script>
 </head>
 
 <body>
+  <!-- ✅ Loading Screen HTML -->
+<div id="loadingScreen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;display:flex;align-items:center;justify-content:center;z-index:10000;transition:opacity 0.5s ease;">
+  <div style="text-align:center;">
+    <svg xmlns="http://www.w3.org/2000/svg" style="margin:auto; background:none;" width="60" height="60" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid">
+      <circle cx="50" cy="50" fill="none" stroke="#007bff" stroke-width="10" r="35" stroke-dasharray="164.93361431346415 56.97787143782138">
+        <animateTransform attributeName="transform" type="rotate" repeatCount="indefinite" dur="0.9s" values="0 50 50;360 50 50" keyTimes="0;1"></animateTransform>
+      </circle>
+    </svg>
+    <p style="font-family:'Poppins', sans-serif;font-size:18px;margin-top:10px;color:#007bff;">Loading Smart Parking...</p>
+  </div>
+</div>
+
   <div class="dashboard">
     <header>
       <h1>Smart Parking</h1>
@@ -162,7 +295,7 @@
     <div class="legend">
       <span class="dot filled"></span> Terisi
       <span class="dot empty"></span> Kosong
-      <span class="dot booked"></span> Dibooking
+      <span class="dot dibooking"></span> Dibooking
       <span class="dot" style="background-color:#007bff;"></span> Booking Anda
     </div>
 
@@ -190,5 +323,29 @@
       </div>
     </div>
   </div>
+
+  <div id="customModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-icon">⚠️</div>
+      <p id="modalText">Apakah Anda yakin?</p>
+      <div class="modal-buttons">
+        <button id="modalYes">Ya</button>
+        <button id="modalCancel">Batal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ Tambahan Script untuk Loading -->
+<script>
+  window.addEventListener("load", () => {
+    setTimeout(() => {
+      const loading = document.getElementById("loadingScreen");
+      loading.style.opacity = 0;
+      setTimeout(() => {
+        loading.style.display = "none";
+      }, 500);
+    }, 1500); // 2 detik loading
+  });
+</script>
 </body>
 </html>
