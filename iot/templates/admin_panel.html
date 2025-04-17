@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Panel - Smart Parking</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      margin: 0;
+      background-color: #f5f5f5;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      background-color: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #333;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 14px 16px;
+      border-bottom: 1px solid #ddd;
+      text-align: center;
+    }
+
+    th {
+      background-color: #007bff;
+      color: white;
+    }
+
+    tr:hover {
+      background-color: #f1f1f1;
+    }
+
+    .btn {
+      background-color: #dc3545;
+      color: white;
+      padding: 8px 14px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .btn:hover {
+      background-color: #b02a37;
+    }
+
+    .nav {
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .nav a {
+      color: #007bff;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .nav a:hover {
+      text-decoration: underline;
+    }
+
+    .no-booking {
+      text-align: center;
+      padding: 30px;
+      font-size: 18px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Admin Panel - Daftar Slot Dibooking</h1>
+
+    {% if bookings %}
+    <table>
+      <thead>
+        <tr>
+          <th>Slot</th>
+          <th>Username</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for booking in bookings %}
+        <tr>
+          <td>{{ booking.slot_id }}</td>
+          <td>{{ booking.username }}</td>
+          <td>
+	    <form method="POST" action="{{ url_for('admin_unbook', booking_id=booking.id) }}">
+              <button type="submit" class="btn">Lepaskan</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <div class="no-booking">Tidak ada slot yang sedang dibooking saat ini.</div>
+    {% endif %}
+
+    <div class="nav">
+      <a href="{{ url_for('dashboard') }}">⬅ Kembali ke Dashboard</a>
+    </div>
+  </div>
+</body>
+</html>

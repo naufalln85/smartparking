@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Parking Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    .slot.booked-own {
+      background-color: #007bff !important;
+      color: white;
+    }
+    .admin-link {
+      margin-top: 10px;
+    }
+    .admin-link a {
+      color: #007bff;
+      font-weight: bold;
+      text-decoration: none;
+    }
+    .admin-link a:hover {
+      text-decoration: underline;
+    }
+  </style>
+
+  <script>
+    async function updateSlots() {
+      try {
+        const res = await fetch("/api/status");
+        const data = await res.json();
+
+        const statusMap = {
+          "B3": data.v0,
+          "A6": data.v1,
+          "A3": data.v2
+        };
+
+        const bookings = data.bookings || [];
+        const currentUser = data.current_user;
+
+        let filledCount = 3; // Static filled slot: A4, A5, B4
+
+        document.querySelectorAll('.slot').forEach(slot => {
+          const id = slot.dataset.id;
+          slot.classList.remove("empty", "filled", "booked", "booked-own");
+          slot.title = "";
+
+          const isBooked = bookings.find(b => b.slot_id === id);
+          const isFilled = statusMap[id] === "Isi";
+
+          if (isBooked) {
+            if (isBooked.user_id === currentUser) {
+              slot.classList.add("booked-own");
+              slot.title = "Booking Anda";
+            } else {
+              slot.classList.add("booked");
+              slot.title = "Sudah dibooking";
+              {% if session['username'] == 'admin' %}
+                if (isBooked.username) {
+                  slot.title += " oleh " + isBooked.username;
+                }
+              {% endif %}
+            }
+          } else if (isFilled) {
+            slot.classList.add("filled");
+            slot.title = "Terisi";
+            filledCount++;
+          } else {
+            slot.classList.add("empty");
+            slot.title = "Kosong";
+          }
+
+          // Klik Handler
+          slot.onclick = () => {
+            if (slot.classList.contains("empty")) {
+              if (!currentUser) {
+                const confirmLogin = confirm(`Slot ${id} kosong. Login untuk booking?`);
+                if (confirmLogin) {
+                  window.location.href = "/login";
+                }
+              } else {
+                const confirmBook = confirm(`Ingin booking slot ${id}?`);
+                if (confirmBook) {
+                  const form = document.createElement("form");
+                  form.method = "POST";
+                  form.action = `/book/${id}`;
+                  document.body.appendChild(form);
+                  form.submit();
+                }
+              }
+            } else if (slot.classList.contains("booked-own")) {
+              const confirmUnbook = confirm(`Anda telah booking slot ${id}. Lepaskan?`);
+              if (confirmUnbook) {
+                const form = document.createElement("form");
+                form.method = "POST";
+                form.action = `/unbook/${id}`;
+                document.body.appendChild(form);
+                form.submit();
+              }
+            }
+          };
+        });
+
+        // Update statistik
+        document.getElementById("total-slot").textContent = 10;
+        document.getElementById("slot-terisi").textContent = filledCount;
+        document.getElementById("sisa-slot").textContent = 10 - filledCount;
+
+      } catch (err) {
+        console.error("Gagal ambil status:", err);
+      }
+    }
+
+    setInterval(updateSlots, 2000);
+    window.onload = updateSlots;
+  </script>
+</head>
+
+<body>
+  <div class="dashboard">
+    <header>
+      <h1>Smart Parking</h1>
+      {% if session['username'] %}
+        <p>Selamat datang, {{ session['username'] }} | <a href="{{ url_for('logout') }}">Logout</a></p>
+      {% endif %}
+    </header>
+
+    <div class="top-bar">
+      <div class="login-register-box">
+        {% if session.get('username') %}
+          <span class="greeting">👋 {{ session['username'] }}</span>
+          <a href="{{ url_for('logout') }}" class="top-btn">Logout</a>
+          {% if session['username'] == 'admin' %}
+            <div class="admin-link">
+              <a href="{{ url_for('admin_panel') }}">🔧 Admin Panel</a>
+            </div>
+          {% endif %}
+        {% else %}
+          <a href="{{ url_for('login') }}" class="top-btn">Login</a>
+          <a href="{{ url_for('register') }}" class="top-btn">Register</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="summary">
+      <div class="card">
+        <p>Total Slot</p>
+        <strong id="total-slot">10</strong>
+      </div>
+      <div class="card">
+        <p>Sisa Slot</p>
+        <strong id="sisa-slot">7</strong>
+      </div>
+      <div class="card">
+        <p>Slot Terisi</p>
+        <strong id="slot-terisi">3</strong>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span class="dot filled"></span> Terisi
+      <span class="dot empty"></span> Kosong
+      <span class="dot booked"></span> Dibooking
+      <span class="dot" style="background-color:#007bff;"></span> Booking Anda
+    </div>
+
+    <div class="slot-area">
+      <div class="zone">
+        <h2>Basement / Indoor</h2>
+        <div class="slot-grid indoor">
+          <div class="slot empty" data-id="B1">🚙 B1</div>
+          <div class="slot empty" data-id="B2">🅿️ B2</div>
+          <div class="slot empty" data-id="B3">🚗 B3</div>
+          <div class="slot filled" data-id="B4">🚙 B4</div>
+        </div>
+      </div>
+
+      <div class="zone">
+        <h2>Outdoor</h2>
+        <div class="slot-grid outdoor">
+          <div class="slot empty" data-id="A1">🚙 A1</div>
+          <div class="slot empty" data-id="A2">🅿️ A2</div>
+          <div class="slot empty" data-id="A3">🚗 A3</div>
+          <div class="slot filled" data-id="A4">🚗 A4</div>
+          <div class="slot filled" data-id="A5">🚗 A5</div>
+          <div class="slot empty" data-id="A6">🚙 A6</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
