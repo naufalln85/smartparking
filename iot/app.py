@@ -4,28 +4,31 @@ import sqlite3
 import os
 
 app = Flask(__name__)
-app.secret_key = 'secretkey123'  # Ganti ke yang aman di produksi
+app.secret_key = 'secretkey123'  # Ganti dengan yang lebih aman di produksi
 DATABASE = os.path.join('instance', 'parking.db')
-
-# Token Blynk
 BLYNK_TOKEN = "xbC-JEuKmxpdry7iTOd8n2h_bCsaOf-I"
 
-# Inisialisasi database
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
 
+# Inisialisasi DB dan admin
 with app.app_context():
+    if not os.path.exists('instance'):
+        os.makedirs('instance')
     conn = get_db_connection()
     cur = conn.cursor()
+
     cur.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
+            password TEXT NOT NULL,
+            role TEXT DEFAULT 'user'
         )
     ''')
+
     cur.execute('''
         CREATE TABLE IF NOT EXISTS bookings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,13 +38,14 @@ with app.app_context():
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
     ''')
-    conn.commit()
-    # Buat akun admin default
+
+    # Tambahkan admin jika belum ada
     admin = cur.execute('SELECT * FROM users WHERE username = "admin"').fetchone()
     if not admin:
         admin_pw = generate_password_hash("admin123#")
-        cur.execute('INSERT INTO users (username, password) VALUES (?, ?)', ("admin", admin_pw))
-        conn.commit()
+        cur.execute('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', 
+                    ("admin", admin_pw, "admin"))
+    conn.commit()
     conn.close()
 
 @app.route('/')
@@ -80,8 +84,13 @@ def login():
         if user and check_password_hash(user['password'], password):
             session['user_id'] = user['id']
             session['username'] = user['username']
+            session['role'] = user['role']
             flash('Login berhasil!', 'success')
-            return redirect(url_for('dashboard'))
+
+            if user['role'] == 'admin':
+                return redirect(url_for('dashboard'))
+            else:
+                return redirect(url_for('dashboard'))
         else:
             flash('Username atau password salah!', 'danger')
 
@@ -126,6 +135,49 @@ def unbook_slot(slot_id):
     flash(f'Slot {slot_id} berhasil dilepas!', 'info')
     return redirect(url_for('dashboard'))
 
+@app.route('/admin/users', methods=['GET', 'POST'])
+def admin_users():
+    if 'username' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        if not username or not password:
+            flash("Username dan password tidak boleh kosong.")
+            return redirect(url_for('admin_users'))
+
+        existing_user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        if existing_user:
+            flash("Username sudah ada.")
+        else:
+            hashed = generate_password_hash(password)
+            conn.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", 
+                         (username, hashed, "user"))
+            conn.commit()
+            flash("User berhasil ditambahkan.")
+    
+    users = conn.execute("SELECT id, username, role FROM users").fetchall()
+    conn.close()
+    return render_template('admin_users.html', users=users)
+
+@app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
+def delete_user(user_id):
+    if 'username' not in session or session.get('role') != 'admin':
+        flash("Akses ditolak.", "danger")
+        return redirect(url_for('dashboard'))
+
+    conn = get_db_connection()
+    conn.execute('DELETE FROM bookings WHERE user_id = ?', (user_id,))
+    conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+
+    flash("User berhasil dihapus.", "info")
+    return redirect(url_for('admin_users'))
+
 @app.route('/api/status')
 def get_status():
     try:
@@ -144,8 +196,7 @@ def get_status():
         ''').fetchall()
         conn.close()
 
-        # Kirim username hanya jika admin
-        is_admin = session.get("username") == "admin"
+        is_admin = session.get("role") == "admin"
         bookings_list = [
             {
                 "slot_id": b["slot_id"],
@@ -167,7 +218,7 @@ def get_status():
 
 @app.route('/admin')
 def admin_panel():
-    if 'username' not in session or session['username'] != 'admin':
+    if 'username' not in session or session.get('role') != 'admin':
         flash("Akses ditolak. Hanya admin yang bisa mengakses halaman ini.", "danger")
         return redirect(url_for('dashboard'))
 
@@ -182,7 +233,7 @@ def admin_panel():
 
 @app.route('/admin/unbook/<int:booking_id>', methods=['POST'])
 def admin_unbook(booking_id):
-    if 'username' not in session or session['username'] != 'admin':
+    if 'username' not in session or session.get('role') != 'admin':
         flash("Akses ditolak.", "danger")
         return redirect(url_for('dashboard'))
 
@@ -194,6 +245,4 @@ def admin_unbook(booking_id):
     return redirect(url_for('admin_panel'))
 
 if __name__ == '__main__':
-    if not os.path.exists('instance'):
-        os.mkdir('instance')
     app.run(debug=True, host='0.0.0.0', port=80)

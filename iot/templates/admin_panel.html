@@ -62,8 +62,11 @@
     }
 
     .nav {
-      margin-top: 20px;
-      text-align: center;
+      margin-top: 40px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
     }
 
     .nav a {
@@ -104,7 +107,7 @@
           <td>{{ booking.slot_id }}</td>
           <td>{{ booking.username }}</td>
           <td>
-	    <form method="POST" action="{{ url_for('admin_unbook', booking_id=booking.id) }}">
+            <form method="POST" action="{{ url_for('admin_unbook', booking_id=booking.id) }}">
               <button type="submit" class="btn">Lepaskan</button>
             </form>
           </td>
@@ -117,7 +120,9 @@
     {% endif %}
 
     <div class="nav">
-      <a href="{{ url_for('dashboard') }}">⬅ Kembali ke Dashboard</a>
+      <a href="{{ url_for('dashboard') }}">⬅️ Kembali ke Dashboard</a>
+      <span>|</span>
+      <a href="{{ url_for('admin_users') }}">Kelola User ➡️</a>
     </div>
   </div>
 </body>
