@@ -1,0 +1,106 @@
+#loading-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to bottom right, #dff1f9, #edf5fc);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  transition: opacity 0.8s ease;
+}
+
+#loading-screen.fade-out {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.spinner {
+  border: 6px solid #f3f3f3;
+  border-top: 6px solid #3498db;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+#loading-screen p {
+  font-size: 18px;
+  color: #333;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.slot.booked-own {
+  background-color: #007bff !important;
+  color: white;
+}
+
+.admin-link {
+  margin-top: 10px;
+}
+
+.admin-link a {
+  color: #007bff;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.admin-link a:hover {
+  text-decoration: underline;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 999;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  background-color: #fff;
+  margin: 15% auto;
+  padding: 30px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  font-family: 'Poppins', sans-serif;
+}
+
+.modal-icon {
+  font-size: 40px;
+  margin-bottom: 15px;
+}
+
+.modal-buttons button {
+  margin: 10px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+#modalYes {
+  background-color: #28a745;
+  color: white;
+}
+
+#modalCancel {
+  background-color: #dc3545;
+  color: white;
+}
