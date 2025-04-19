@@ -120,6 +120,40 @@
       transform: scale(1.15);
     }
 
+    /* 🔔 Flash Message Styling */
+    .flash-message {
+      padding: 0.8rem 1rem;
+      margin-bottom: 1rem;
+      border-radius: 10px;
+      font-weight: 500;
+      font-size: 0.95rem;
+      text-align: center;
+      animation: slideDown 0.4s ease-in-out;
+    }
+
+    .flash-danger {
+      background-color: #ffe6e6;
+      color: #d10000;
+      border-left: 4px solid #ff4d4d;
+    }
+
+    .flash-info {
+      background-color: #d6ecff;
+      color: #00529b;
+      border-left: 4px solid #66b3ff;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
     @media (max-width: 480px) {
       .auth-card {
         margin: 1rem;
@@ -132,15 +166,26 @@
   <div class="auth-card">
     <a href="{{ url_for('dashboard') }}" class="close-btn">❌</a>
     <h2>Login</h2>
+
+    <!-- 🔔 Flash message -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash-message flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
     <form method="POST">
       <label for="username">Username</label>
-      <input type="text" name="username" id="username" required>
+      <input type="text" name="username" id="username" value="{{ username or '' }}" required>
 
       <label for="password">Password</label>
       <input type="password" name="password" id="password" required>
 
       <button type="submit">Login</button>
     </form>
+
     <div class="extra-link">
       Belum punya akun? <a href="{{ url_for('register') }}">Daftar di sini</a>
     </div>

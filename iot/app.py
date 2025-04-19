@@ -73,6 +73,7 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    username = ''
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -86,21 +87,18 @@ def login():
             session['username'] = user['username']
             session['role'] = user['role']
             flash('Login berhasil!', 'success')
-
-            if user['role'] == 'admin':
-                return redirect(url_for('dashboard'))
-            else:
-                return redirect(url_for('dashboard'))
+            return redirect(url_for('dashboard'))
         else:
             flash('Username atau password salah!', 'danger')
+            return render_template('login.html', username=username)
 
     return render_template('login.html')
 
-@app.route('/logout')
+@app.route('/logout', methods=['GET', 'POST'])
 def logout():
     session.clear()
-    flash('Anda berhasil logout.', 'info')
-    return redirect(url_for('index'))
+    flash('Apakah Anda mau login kembali?', 'info')
+    return redirect(url_for('login'))
 
 @app.route('/dashboard')
 def dashboard():
@@ -158,7 +156,7 @@ def admin_users():
                          (username, hashed, "user"))
             conn.commit()
             flash("User berhasil ditambahkan.")
-    
+
     users = conn.execute("SELECT id, username, role FROM users").fetchall()
     conn.close()
     return render_template('admin_users.html', users=users)
@@ -245,4 +243,4 @@ def admin_unbook(booking_id):
     return redirect(url_for('admin_panel'))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=80)
+    app.run(debug=True, host='0.0.0.0', port=5000)
