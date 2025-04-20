@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body>
   <div id="loadingScreen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;display:flex;align-items:center;justify-content:center;z-index:10000;transition:opacity 0.5s ease;">
@@ -60,6 +61,12 @@
       </div>
     </div>
 
+    {% if session['user_id'] %}
+      <div id="remainingTime" class="remaining-time" style="display: none; text-align: center; margin: 20px 0; font-weight: bold; color: #007bff;">
+        Sisa Waktu Booking: <span id="timeLeft"></span>
+      </div>
+    {% endif %}
+
     <div class="legend">
       <span class="dot filled"></span> Terisi
       <span class="dot empty"></span> Kosong
@@ -96,6 +103,11 @@
     <div class="modal-content">
       <div class="modal-icon">⚠️</div>
       <p id="modalText">Apakah Anda yakin?</p>
+      <div id="bookingForm" style="display: none;">
+        <label for="flatpickr-input">Waktu Penempatan:</label>
+        <input type="text" id="flatpickr-input" name="start_time" required>
+        <p id="totalPrice">Total: Rp0</p>
+      </div>
       <div class="modal-buttons">
         <button id="modalYes">Ya</button>
         <button id="modalCancel">Batal</button>
@@ -103,6 +115,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 </body>
 </html>
