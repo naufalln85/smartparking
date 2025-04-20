@@ -1,44 +1,3 @@
-#loading-screen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(to bottom right, #dff1f9, #edf5fc);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-  transition: opacity 0.8s ease;
-}
-
-#loading-screen.fade-out {
-  opacity: 0;
-  visibility: hidden;
-}
-
-.spinner {
-  border: 6px solid #f3f3f3;
-  border-top: 6px solid #3498db;
-  border-radius: 50%;
-  width: 60px;
-  height: 60px;
-  animation: spin 1s linear infinite;
-  margin-bottom: 16px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-#loading-screen p {
-  font-size: 18px;
-  color: #333;
-  font-family: 'Segoe UI', sans-serif;
-}
-
 .slot.booked-own {
   background-color: #007bff !important;
   color: white;
@@ -82,18 +41,87 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
   position: relative;
   z-index: 1001;
+  border: 2px solid #007bff; /* Tambah border biru */
 }
 
 .modal-icon {
   font-size: 40px;
   margin-bottom: 15px;
+  color: #007bff; /* Ubah warna ikon */
+}
+
+.modal-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+#bookingForm {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.duration-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.duration-input-group label {
+  font-weight: 500;
+  color: #333;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+}
+
+.input-wrapper input {
+  width: 60px;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  text-align: center;
+  background-color: #f8f9fa;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.input-wrapper input:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+  outline: none;
+}
+
+.input-wrapper span {
+  font-size: 14px;
+  color: #666;
+}
+
+#bookingForm #totalPrice {
+  font-weight: bold;
+  color: #007bff;
+  margin-top: 10px;
+  font-size: 16px;
+  background: #e7f3ff;
+  padding: 8px;
+  border-radius: 6px;
 }
 
 .modal-buttons {
   margin-top: 20px;
   display: flex;
   justify-content: center;
-  gap: 10px;
+  gap: 15px;
 }
 
 .modal-buttons button {
@@ -103,7 +131,7 @@
   border-radius: 8px;
   cursor: pointer;
   font-weight: bold;
-  transition: background-color 0.3s ease;
+  transition: transform 0.2s ease, background-color 0.3s ease;
   z-index: 1002;
   pointer-events: auto;
 }
@@ -115,6 +143,7 @@
 
 #modalYes:hover {
   background-color: #218838;
+  transform: scale(1.05);
 }
 
 #modalCancel {
@@ -124,39 +153,7 @@
 
 #modalCancel:hover {
   background-color: #c82333;
-}
-
-#bookingForm {
-  margin-top: 15px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-#bookingForm label {
-  font-weight: 500;
-  margin-top: 10px;
-  color: #333;
-}
-
-#bookingForm input {
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-size: 14px;
-  background-color: #f8f9fa;
-  transition: border-color 0.3s ease;
-}
-
-#bookingForm input:focus {
-  border-color: #007bff;
-  outline: none;
-}
-
-#bookingForm #totalPrice {
-  font-weight: bold;
-  color: #007bff;
-  margin-top: 10px;
+  transform: scale(1.05);
 }
 
 .remaining-time {
@@ -166,28 +163,82 @@
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-/* Flatpickr Custom Styling */
-.flatpickr-calendar {
+.slot {
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.slot.empty {
+  background-color: white;
+}
+
+.slot.booked,
+.slot.booked-own {
+  background-color: #ffc107;
+}
+
+.slot.filled {
+  background-color: #dc3545;
+}
+
+.toast-message {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: #17a2b8;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  opacity: 0;
+  z-index: 9999;
+  transition: opacity 0.5s ease;
+}
+
+.toast-message.important {
+  background-color: #dc3545;
+  font-weight: bold;
+}
+
+/* Tambahan untuk legend */
+.dot.filled { background-color: #dc3545; }
+.dot.empty { background-color: white; border: 1px solid #ccc; }
+.dot.booked { background-color: #ffc107; }
+.dot.booked-own { background-color: #007bff; }
+
+/* Flash messages */
+.alert {
+  padding: 15px;
+  margin: 10px auto;
+  border-radius: 8px;
   font-family: 'Poppins', sans-serif;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  z-index: 1003;
+  font-size: 16px;
+  max-width: 600px;
+  text-align: center;
+  animation: fadeInOut 5s ease forwards;
 }
 
-.flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange {
-  background: #007bff;
-  border-color: #007bff;
+.alert-success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
 }
 
-.flatpickr-day.today {
-  border-color: #007bff;
+.alert-danger {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
 }
 
-.flatpickr-time input {
-  border-radius: 8px;
-  border: 1px solid #ccc;
+.alert-info {
+  background-color: #e7f3ff;
+  color: #004085;
+  border: 1px solid #b8daff;
 }
 
-.flatpickr-time input:focus {
-  border-color: #007bff;
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { opacity: 0; display: none; }
 }

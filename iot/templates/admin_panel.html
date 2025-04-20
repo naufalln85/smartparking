@@ -5,31 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin Panel - Smart Parking</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <style>
     body {
       font-family: 'Poppins', sans-serif;
       margin: 0;
-      background-color: #f5f5f5;
+      background: linear-gradient(to bottom right, #dfe9f3, #f3e7f9);
+      min-height: 100vh;
     }
 
     .container {
-      max-width: 1000px;
-      margin: 40px auto;
-      background-color: white;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      padding: 40px;
+      max-width: 1200px;
+      margin: 0 auto;
     }
 
     h1 {
       text-align: center;
       margin-bottom: 30px;
       color: #333;
+      font-size: 36px;
+    }
+
+    h2 {
+      color: #333;
+      font-size: 24px;
+      margin-bottom: 20px;
+      text-align: center;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      margin-bottom: 40px;
     }
 
     th, td {
@@ -41,116 +52,192 @@
     th {
       background-color: #007bff;
       color: white;
+      font-weight: 600;
     }
 
     tr:hover {
       background-color: #f1f1f1;
     }
 
-    .btn {
+    .action-btn {
       background-color: #dc3545;
       color: white;
-      padding: 8px 14px;
+      padding: 8px 16px;
       border: none;
-      border-radius: 6px;
-      cursor: pointer;
+      border-radius: 8px;
       font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
     }
 
-    .btn:hover {
-      background-color: #b02a37;
+    .action-btn:hover {
+      background-color: #c82333;
+      transform: scale(1.05);
     }
 
     .nav {
-      margin-top: 40px;
+      text-align: center;
       display: flex;
       justify-content: center;
-      align-items: center;
-      gap: 20px;
+      gap: 15px;
+      margin-top: 20px;
     }
 
-    .nav a {
-      color: #007bff;
+    .nav a, .nav button {
+      background-color: #007bff;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
       text-decoration: none;
       font-weight: bold;
-      font-size: 16px;
+      transition: background-color 0.3s ease, transform 0.2s ease;
     }
 
-    .nav a:hover {
-      text-decoration: underline;
+    .nav a:hover, .nav button:hover {
+      background-color: #0056b3;
+      transform: scale(1.05);
     }
 
-    .no-booking {
+    .no-data {
       text-align: center;
       padding: 30px;
       font-size: 18px;
-      color: #888;
+      color: #666;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    /* Responsivitas */
+    @media (max-width: 768px) {
+      .container {
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      h2 {
+        font-size: 20px;
+      }
+
+      table {
+        font-size: 14px;
+      }
+
+      th, td {
+        padding: 10px;
+      }
+
+      .action-btn {
+        padding: 6px 12px;
+        font-size: 14px;
+      }
+
+      .nav {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .nav a, .nav button {
+        padding: 8px 16px;
+        font-size: 14px;
+      }
+
+      .no-data {
+        font-size: 16px;
+        padding: 20px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        padding: 15px;
+      }
+
+      h1 {
+        font-size: 20px;
+      }
+
+      h2 {
+        font-size: 18px;
+      }
+
+      table {
+        font-size: 12px;
+      }
+
+      th, td {
+        padding: 8px;
+      }
+
+      .action-btn {
+        padding: 5px 10px;
+        font-size: 12px;
+      }
+
+      .nav a, .nav button {
+        padding: 6px 12px;
+        font-size: 12px;
+      }
+
+      .no-data {
+        font-size: 14px;
+        padding: 15px;
+      }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Admin Panel - Daftar Slot Dibooking</h1>
+    <h1>🔧 Admin Panel</h1>
 
+    <!-- Tabel Booking Aktif -->
+    <h2>Booking Aktif</h2>
     {% if bookings %}
-    <table>
-      <thead>
-        <tr>
-          <th>Slot</th>
-          <th>Username</th>
-          <th>Waktu Penempatan</th>
-          <th>Total Harga</th>
-          <th>Sisa Waktu</th>
-          <th>Aksi</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for booking in bookings %}
-        <tr>
-          <td>{{ booking.slot_id }}</td>
-          <td>{{ booking.username }}</td>
-          <td>{{ booking.start_time }}</td>
-          <td>Rp{{ booking.total_price | format_number }}</td>
-          <td data-start-time="{{ booking.start_time }}" class="remaining-time"></td>
-          <td>
-            <form method="POST" action="{{ url_for('admin_unbook', booking_id=booking.id) }}">
-              <button type="submit" class="btn">Lepaskan</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Slot</th>
+            <th>Waktu Booking</th>
+            <th>Durasi</th>
+            <th>Sisa Waktu</th>
+            <th>Total Harga</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for booking in bookings %}
+            <tr>
+              <td>{{ booking.id }}</td>
+              <td>{{ booking.username }}</td>
+              <td>{{ booking.slot_id }}</td>
+              <td>{{ booking.booking_time }}</td>
+              <td>{{ (booking.duration // 60) }} jam {{ (booking.duration % 60) }} menit</td>
+              <td>{{ (booking.remaining_duration // 60) }} jam {{ (booking.remaining_duration % 60) }} menit</td>
+              <td>Rp{{ booking.total_price | format_number }}</td>
+              <td>
+                <form method="POST" action="{{ url_for('admin_unbook', booking_id=booking.id) }}" style="display: inline;">
+                  <button type="submit" class="action-btn">Unbook</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     {% else %}
-      <div class="no-booking">Tidak ada slot yang sedang dibooking saat ini.</div>
+      <div class="no-data">Tidak ada booking aktif saat ini.</div>
     {% endif %}
 
+    <!-- Navigasi -->
     <div class="nav">
+      <a href="{{ url_for('admin_history') }}">📜 Riwayat Booking</a>
+      <a href="{{ url_for('admin_users') }}">👥 Manajemen Pengguna</a>
       <a href="{{ url_for('dashboard') }}">⬅️ Kembali ke Dashboard</a>
-      <span>|</span>
-      <a href="{{ url_for('admin_users') }}">Kelola User ➡️</a>
     </div>
   </div>
-
-  <script>
-    function updateRemainingTimes() {
-      document.querySelectorAll('.remaining-time').forEach(cell => {
-        const startTime = cell.dataset.startTime;
-        const start = new Date(startTime);
-        const now = new Date();
-        const diffMs = start - now;
-        if (diffMs <= 0) {
-          cell.textContent = 'Waktu Habis';
-        } else {
-          const hours = Math.floor(diffMs / 3600000);
-          const minutes = Math.floor((diffMs % 3600000) / 60000);
-          cell.textContent = `${hours} jam ${minutes} menit`;
-        }
-      });
-    }
-
-    updateRemainingTimes();
-    setInterval(updateRemainingTimes, 60000); // Update every minute
-  </script>
 </body>
 </html>

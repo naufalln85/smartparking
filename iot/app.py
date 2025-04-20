@@ -1,105 +1,82 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, \
+                  flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import os
 import logging
-from datetime import datetime
+import requests
+from datetime import datetime, timedelta
+
+# Import helper DB (get_db_connection & init_db)
+from db import get_db_connection, init_db
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24).hex()
-DATABASE = os.path.join('instance', 'parking.db')
+
+# Token Blynk Anda
 BLYNK_TOKEN = "xbC-JEuKmxpdry7iTOd8n2h_bCsaOf-I"
 
+# Setup logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-def get_db_connection():
+# Inisialisasi database saat start aplikasi
+with app.app_context():
+    init_db()
+    # Tambahkan kolom baru untuk bookings jika belum ada
+    conn = get_db_connection()
     try:
-        conn = sqlite3.connect(DATABASE)
-        conn.row_factory = sqlite3.Row
-        logger.debug("Database connection established")
-        return conn
-    except Exception as e:
-        logger.error(f"Error connecting to database: {e}")
-        raise
+        conn.execute('ALTER TABLE bookings ADD COLUMN booking_time TEXT')
+        conn.execute('ALTER TABLE bookings ADD COLUMN duration INTEGER')  # Dalam menit
+        conn.execute('ALTER TABLE bookings ADD COLUMN remaining_duration INTEGER')  # Dalam menit
+    except sqlite3.OperationalError:
+        pass  # Kolom mungkin sudah ada
 
-# Define format_number filter
+    # Buat tabel booking_history jika belum ada
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS booking_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            slot_id TEXT,
+            booking_time TEXT,
+            duration INTEGER,
+            total_price INTEGER,
+            end_time TEXT,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+# Jinja Filter: format angka dengan ribuan
+@app.template_filter('format_number')
 def format_number(value):
     try:
-        return "{:,.0f}".format(float(value)).replace(",", ".")
+        return "{:,}".format(int(value))
     except (ValueError, TypeError):
-        logger.error(f"Error formatting number: {value}")
         return str(value)
 
-app.jinja_env.filters['format_number'] = format_number
-
-# Initialize DB and admin
-with app.app_context():
-    try:
-        logger.debug("Starting database initialization")
-        if not os.path.exists('instance'):
-            os.makedirs('instance')
-            logger.debug("Created instance directory")
-        
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        logger.debug("Creating users table if not exists")
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                role TEXT DEFAULT 'user'
-            )
-        ''')
-        logger.debug("Users table created or already exists")
-
-        logger.debug("Creating bookings table if not exists")
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS bookings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                slot_id TEXT,
-                start_time TEXT,
-                total_price INTEGER,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY(user_id) REFERENCES users(id)
-            )
-        ''')
-        logger.debug("Bookings table created or already exists")
-
-        logger.debug("Checking for admin user")
-        admin = cur.execute('SELECT * FROM users WHERE username = "admin"').fetchone()
-        if not admin:
-            admin_pw = generate_password_hash("admin123#")
-            cur.execute('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', 
-                        ("admin", admin_pw, "admin"))
-            logger.debug("Admin user created")
-
-        conn.commit()
-        logger.debug("Database initialization completed")
-    except Exception as e:
-        logger.error(f"Error initializing database: {e}")
-        raise
-    finally:
-        conn.close()
-
+# Halaman beranda (redirect ke dashboard jika login)
 @app.route('/')
 def index():
+    if session.get('user_id'):
+        return redirect(url_for('dashboard'))
     return render_template('index.html')
 
-@app.route('/register', methods=['GET', 'POST'])
+# REGISTER
+@app.route('/register', methods=['GET','POST'])
 def register():
     if request.method == 'POST':
         username = request.form['username']
         password = generate_password_hash(request.form['password'])
-
         conn = get_db_connection()
         try:
-            conn.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
+            conn.execute(
+                'INSERT INTO users (username, password) VALUES (?, ?)',
+                (username, password)
+            )
             conn.commit()
-            flash('Registrasi berhasil! Silakan login.', 'success')
+            flash('Registrasi berhasil! Silakan login.', 'info')  # Ubah ke 'info' untuk warna biru
             return redirect(url_for('login'))
         except sqlite3.IntegrityError:
             flash('Username sudah dipakai!', 'danger')
@@ -108,298 +85,354 @@ def register():
             flash('Terjadi kesalahan saat registrasi.', 'danger')
         finally:
             conn.close()
-
     return render_template('register.html')
 
-@app.route('/login', methods=['GET', 'POST'])
+# LOGIN
+@app.route('/login', methods=['GET','POST'])
 def login():
-    logger.debug(f"Session before login: {session}")
-    username = ''
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-
         conn = get_db_connection()
         try:
-            user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+            user = conn.execute(
+                'SELECT * FROM users WHERE username = ?',
+                (username,)
+            ).fetchone()
+
             if user and check_password_hash(user['password'], password):
-                session['user_id'] = user['id']
+                # Simpan session
+                session['user_id']  = user['id']
                 session['username'] = user['username']
-                session['role'] = user['role']
-                logger.debug(f"Session after login: {session}")
+                session['role']     = user['role']
                 flash('Login berhasil!', 'success')
                 return redirect(url_for('dashboard'))
             else:
                 flash('Username atau password salah!', 'danger')
+
         except Exception as e:
             logger.error(f"Error during login: {e}")
             flash('Terjadi kesalahan saat login.', 'danger')
         finally:
             conn.close()
 
-    return render_template('login.html', username=username)
+    return render_template('login.html')
 
-@app.route('/logout', methods=['GET', 'POST'])
+# LOGOUT
+@app.route('/logout')
 def logout():
     session.clear()
-    flash('Apakah Anda mau login kembali?', 'info')
+    flash('Anda telah logout.', 'info')
     return redirect(url_for('login'))
 
+# DASHBOARD
 @app.route('/dashboard')
 def dashboard():
-    logger.debug(f"Accessing dashboard with session: {session}")
-    try:
-        conn = get_db_connection()
-        bookings = conn.execute('SELECT * FROM bookings').fetchall()
-        conn.close()
-    except Exception as e:
-        logger.error(f"Error accessing bookings in dashboard: {e}")
-        flash('Terjadi kesalahan saat memuat data booking.', 'danger')
-        return render_template('dashboard.html', bookings=[], user_id=session.get('user_id'))
+    user_id = session.get('user_id')  # kalau ada, ambil user_id; kalau tidak, None
+    return render_template('dashboard.html', user_id=user_id)
 
-    user_id = session.get('user_id')
-    return render_template('dashboard.html', bookings=bookings, user_id=user_id)
-
+# BOOK SLOT
 @app.route('/book/<slot_id>', methods=['POST'])
 def book_slot(slot_id):
-    logger.debug(f"Booking attempt for slot {slot_id} with session: {session}, form data: {request.form}")
     if 'user_id' not in session:
-        logger.warning("No user_id in session, redirecting to login")
         flash('Silakan login untuk booking.', 'danger')
         return redirect(url_for('login'))
 
-    start_time = request.form.get('start_time')
-    if not start_time:
-        flash('Waktu penempatan diperlukan.', 'danger')
-        return redirect(url_for('dashboard'))
-
-    # Validate slot_id
-    valid_slots = ['B1', 'B2', 'B3', 'B4', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6']
-    if slot_id not in valid_slots:
-        flash('Slot ID tidak valid.', 'danger')
-        return redirect(url_for('dashboard'))
-
-    # Validate and calculate price
-    try:
-        now = datetime.now()
-        # Validate start_time format
-        if not isinstance(start_time, str) or len(start_time) != 16 or start_time[10] != ' ':
-            logger.error(f"Invalid start_time format: {start_time}")
-            flash('Format waktu tidak valid.', 'danger')
-            return redirect(url_for('dashboard'))
-
-        start = datetime.strptime(start_time, '%Y-%m-%d %H:%M')
-        logger.debug(f"Validating start_time: {start_time}, now: {now}, start: {start}")
-
-        if start <= now:
-            flash('Waktu penempatan tidak boleh di masa lalu atau saat ini.', 'danger')
-            return redirect(url_for('dashboard'))
-
-        # Calculate duration in hours (ceiling)
-        duration_seconds = (start - now).total_seconds()
-        duration_hours = max(1, int(duration_seconds / 3600 + 0.999))  # Ceiling to next hour
-        # Limit maximum duration to 24 hours
-        if duration_hours > 24:
-            flash('Durasi booking tidak boleh lebih dari 24 jam.', 'danger')
-            return redirect(url_for('dashboard'))
-
-        total_price = duration_hours * 5000
-        logger.debug(f"Received start_time: {start_time}, duration: {duration_hours} hours ({duration_seconds:.0f} seconds), total_price: Rp{total_price}")
-    except ValueError as e:
-        logger.error(f"Error parsing start_time: {start_time}, error: {e}")
-        flash('Format waktu tidak valid.', 'danger')
-        return redirect(url_for('dashboard'))
-    except Exception as e:
-        logger.error(f"Unexpected error in book_slot: {e}")
-        flash('Terjadi kesalahan saat memproses booking.', 'danger')
+    hours = request.form.get('hours')
+    minutes = request.form.get('minutes')
+    if not hours or not minutes:
+        flash('Durasi diperlukan.', 'danger')
         return redirect(url_for('dashboard'))
 
     try:
-        conn = get_db_connection()
-        conn.execute('INSERT INTO bookings (user_id, slot_id, start_time, total_price) VALUES (?, ?, ?, ?)', 
-                    (session['user_id'], slot_id, start_time, total_price))
+        hours = int(hours)
+        minutes = int(minutes)
+        if hours < 0 or minutes < 0 or (hours == 0 and minutes == 0):
+            flash('Durasi minimal 1 menit.', 'danger')
+            return redirect(url_for('dashboard'))
+
+        if hours > 24 or (hours == 24 and minutes > 0):
+            flash('Durasi maksimal 24 jam.', 'danger')
+            return redirect(url_for('dashboard'))
+
+        if minutes >= 60:
+            flash('Menit harus kurang dari 60.', 'danger')
+            return redirect(url_for('dashboard'))
+
+        duration = (hours * 60) + minutes  # Dalam menit
+        total_price = (hours * 5000) + (minutes * 830)  # Rp5,000 per jam, Rp830 per menit
+        booking_time = datetime.now().strftime('%Y-%m-%d %H:%M')
+        remaining_duration = duration  # Dalam menit
+
+    except ValueError:
+        flash('Durasi tidak valid.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    # Simpan booking
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            'INSERT INTO bookings (user_id, slot_id, booking_time, duration, remaining_duration, total_price) '
+            'VALUES (?, ?, ?, ?, ?, ?)',
+            (session['user_id'], slot_id, booking_time, duration, remaining_duration, total_price)
+        )
         conn.commit()
-        flash(f'Slot {slot_id} berhasil dibooked dengan total Rp{total_price}!', 'success')
+        flash(f'Slot {slot_id} dibooked (Rp{total_price:,}).', 'success')
+
     except Exception as e:
         logger.error(f"Error inserting booking: {e}")
-        flash('Terjadi kesalahan saat menyimpan booking.', 'danger')
+        flash('Gagal menyimpan booking.', 'danger')
     finally:
         conn.close()
 
     return redirect(url_for('dashboard'))
 
+# UNBOOK SLOT
 @app.route('/unbook/<slot_id>', methods=['POST'])
 def unbook_slot(slot_id):
     if 'user_id' not in session:
-        flash('Silakan login untuk melepas booking.', 'danger')
+        flash('Silakan login dulu.', 'danger')
         return redirect(url_for('login'))
 
+    conn = get_db_connection()
     try:
-        conn = get_db_connection()
-        conn.execute('DELETE FROM bookings WHERE user_id = ? AND slot_id = ?', (session['user_id'], slot_id))
+        # Ambil data booking sebelum dihapus
+        booking = conn.execute(
+            'SELECT user_id, slot_id, booking_time, duration, total_price FROM bookings WHERE user_id = ? AND slot_id = ?',
+            (session['user_id'], slot_id)
+        ).fetchone()
+
+        if booking:
+            # Simpan ke booking_history
+            end_time = datetime.now().strftime('%Y-%m-%d %H:%M')
+            conn.execute(
+                'INSERT INTO booking_history (user_id, slot_id, booking_time, duration, total_price, end_time) '
+                'VALUES (?, ?, ?, ?, ?, ?)',
+                (booking['user_id'], booking['slot_id'], booking['booking_time'], booking['duration'], booking['total_price'], end_time)
+            )
+
+        # Hapus booking
+        conn.execute(
+            'DELETE FROM bookings WHERE user_id = ? AND slot_id = ?',
+            (session['user_id'], slot_id)
+        )
         conn.commit()
-        flash(f'Slot {slot_id} berhasil dilepas!', 'info')
+        flash(f'Slot {slot_id} dilepas.', 'info')
     except Exception as e:
-        logger.error(f"Error unbooking slot: {e}")
-        flash('Terjadi kesalahan saat melepas booking.', 'danger')
+        logger.error(f"Error unbooking: {e}")
+        flash('Gagal melepas booking.', 'danger')
     finally:
         conn.close()
 
     return redirect(url_for('dashboard'))
 
-@app.route('/admin/users', methods=['GET', 'POST'])
-def admin_users():
-    if 'username' not in session or session.get('role') != 'admin':
-        flash('Akses ditolak.', 'danger')
-        return redirect(url_for('login'))
-
-    conn = get_db_connection()
-    try:
-        if request.method == 'POST':
-            username = request.form['username']
-            password = request.form['password']
-
-            if not username or not password:
-                flash('Username dan password tidak boleh kosong.', 'danger')
-                return redirect(url_for('admin_users'))
-
-            existing_user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
-            if existing_user:
-                flash('Username sudah ada.', 'danger')
-            else:
-                hashed = generate_password_hash(password)
-                conn.execute('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', 
-                            (username, hashed, 'user'))
-                conn.commit()
-                flash('User berhasil ditambahkan.', 'success')
-
-        users = conn.execute('SELECT id, username, role FROM users').fetchall()
-    except Exception as e:
-        logger.error(f"Error in admin_users: {e}")
-        flash('Terjadi kesalahan saat mengelola pengguna.', 'danger')
-    finally:
-        conn.close()
-
-    return render_template('admin_users.html', users=users)
-
-@app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
-def delete_user(user_id):
-    if 'username' not in session or session.get('role') != 'admin':
-        flash('Akses ditolak.', 'danger')
-        return redirect(url_for('dashboard'))
-
-    conn = get_db_connection()
-    try:
-        conn.execute('DELETE FROM bookings WHERE user_id = ?', (user_id,))
-        conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
-        conn.commit()
-        flash('User berhasil dihapus.', 'info')
-    except Exception as e:
-        logger.error(f"Error deleting user: {e}")
-        flash('Terjadi kesalahan saat menghapus pengguna.', 'danger')
-    finally:
-        conn.close()
-
-    return redirect(url_for('admin_users'))
-
+# API STATUS + AUTO-UNBOOK BERDASARKAN SISA WAKTU
 @app.route('/api/status')
 def get_status():
-    logger.debug(f"API status request with session: {session}")
-    try:
-        import requests
-        pins = ['v0', 'v1', 'v2']
-        status = {}
-        for pin in pins:
-            res = requests.get(f'https://blynk.cloud/external/api/get?token={BLYNK_TOKEN}&{pin}')
-            status[pin] = res.text.strip()
+    logger.debug(f"API status request, session: {session}")
 
+    try:
+        # 1) Ambil status sensor dari Blynk
+        status = {}
+        for pin in ('v0','v1','v2'):
+            try:
+                resp = requests.get(
+                    f'https://blynk.cloud/external/api/get?token={BLYNK_TOKEN}&{pin}',
+                    timeout=5
+                )
+                if resp.status_code == 200:
+                    status[pin] = resp.text.strip()
+                else:
+                    logger.warning(f"Failed to fetch Blynk data for {pin}: {resp.status_code}")
+                    status[pin] = "Unknown"
+            except Exception as e:
+                logger.error(f"Error fetching Blynk data for {pin}: {e}")
+                status[pin] = "Unknown"
+
+        # 2) Auto-unbook: hapus booking ketika sisa waktu habis
         conn = get_db_connection()
         now = datetime.now()
-        now_str = now.strftime('%Y-%m-%d %H:%M')
-        logger.debug(f"Checking for expired bookings before: {now_str} (now: {now})")
+        rows = conn.execute(
+            'SELECT id, slot_id, user_id, booking_time, duration, remaining_duration, total_price FROM bookings'
+        ).fetchall()
 
-        # Fetch all bookings
-        all_bookings = conn.execute('SELECT id, slot_id, start_time FROM bookings').fetchall()
-        logger.debug(f"All bookings: {[(b['id'], b['slot_id'], b['start_time']) for b in all_bookings]}")
-
-        # Delete expired bookings
         expired_bookings = []
-        for booking in all_bookings:
-            try:
-                # Validate start_time format
-                if not isinstance(booking['start_time'], str) or len(booking['start_time']) != 16 or booking['start_time'][10] != ' ':
-                    logger.error(f"Invalid start_time format: {booking['start_time']} for booking id={booking['id']}")
-                    continue
+        with conn:
+            for r in rows:
+                try:
+                    # Log untuk debugging
+                    logger.debug(f"Processing booking ID={r['id']}, slot={r['slot_id']}, booking_time={r['booking_time']}")
+                    booking_time = datetime.strptime(r['booking_time'], '%Y-%m-%d %H:%M')
+                    duration_seconds = r['duration'] * 60  # Konversi menit ke detik
+                    elapsed_seconds = (now - booking_time).total_seconds()
+                    remaining_seconds = duration_seconds - elapsed_seconds
+                    remaining_minutes = max(0, int(remaining_seconds / 60))
 
-                booking_time = datetime.strptime(booking['start_time'], '%Y-%m-%d %H:%M')
-                time_diff = (now - booking_time).total_seconds()
-                logger.debug(f"Booking id={booking['id']}, slot_id={booking['slot_id']}, start_time={booking['start_time']}, time_diff={time_diff:.0f} seconds")
+                    logger.debug(f"Booking ID={r['id']}: duration={r['duration']} menit, elapsed={elapsed_seconds:.2f} detik, remaining={remaining_seconds:.2f} detik")
 
-                if booking_time < now:
-                    expired_bookings.append(booking)
-                else:
-                    logger.debug(f"Booking id={booking['id']} not expired (start_time {booking['start_time']} is in the future)")
-            except ValueError as e:
-                logger.error(f"Error parsing start_time: {booking['start_time']} for booking id={booking['id']}, error: {e}")
-            except Exception as e:
-                logger.error(f"Unexpected error checking booking id={booking['id']}: {e}")
+                    # Update remaining_duration di database
+                    conn.execute(
+                        'UPDATE bookings SET remaining_duration = ? WHERE id = ?',
+                        (remaining_minutes, r['id'])
+                    )
 
-        if expired_bookings:
-            logger.debug(f"Found {len(expired_bookings)} expired bookings: {[(b['id'], b['slot_id'], b['start_time']) for b in expired_bookings]}")
-            for booking in expired_bookings:
-                logger.info(f"Deleting expired booking: id={booking['id']}, slot_id={booking['slot_id']}, start_time={booking['start_time']}")
-                conn.execute('DELETE FROM bookings WHERE id = ?', (booking['id'],))
+                    if remaining_seconds <= 0:
+                        logger.info(f"Auto-unbook ID={r['id']} slot={r['slot_id']} because duration has ended")
+                        # Simpan ke booking_history sebelum hapus
+                        end_time = now.strftime('%Y-%m-%d %H:%M')
+                        conn.execute(
+                            'INSERT INTO booking_history (user_id, slot_id, booking_time, duration, total_price, end_time) '
+                            'VALUES (?, ?, ?, ?, ?, ?)',
+                            (r['user_id'], r['slot_id'], r['booking_time'], r['duration'], r['total_price'], end_time)
+                        )
+                        # Hapus booking
+                        conn.execute(
+                            'DELETE FROM bookings WHERE id = ?',
+                            (r['id'],)
+                        )
+                        expired_bookings.append({
+                            'slot_id': r['slot_id'],
+                            'user_id': r['user_id']
+                        })
+                except Exception as ex:
+                    logger.error(f"Parsing error for booking ID={r['id']}: {ex}")
+
             conn.commit()
-        else:
-            logger.debug("No expired bookings found")
 
-        bookings = conn.execute('''
-            SELECT bookings.slot_id, bookings.user_id, bookings.start_time, bookings.total_price, users.username
-            FROM bookings
-            JOIN users ON bookings.user_id = users.id
+        # 3) Re-query booking valid
+        rows2 = conn.execute('''
+            SELECT b.slot_id, b.user_id, b.booking_time, b.duration, b.remaining_duration, b.total_price, u.username
+            FROM bookings b
+            JOIN users u ON b.user_id = u.id
         ''').fetchall()
         conn.close()
 
-        is_admin = session.get('role') == 'admin'
-        bookings_list = [
-            {
+        # 4) Bentuk JSON
+        is_admin = (session.get('role') == 'admin')
+        bookings_list = []
+        for b in rows2:
+            bookings_list.append({
                 'slot_id': b['slot_id'],
                 'user_id': b['user_id'],
                 'username': b['username'] if is_admin else None,
-                'start_time': b['start_time'],
-                'total_price': b['total_price']
-            }
-            for b in bookings
-        ]
+                'booking_time': b['booking_time'],
+                'duration': b['duration'],
+                'remaining_duration': b['remaining_duration'],
+                'total_price': b['total_price'],
+            })
 
         return jsonify({
             'v0': status['v0'],
             'v1': status['v1'],
             'v2': status['v2'],
             'bookings': bookings_list,
+            'expired_bookings': expired_bookings,
             'current_user': session.get('user_id')
         })
+
     except Exception as e:
-        logger.error(f"Error in get_status: {str(e)}")
-        flash('Terjadi kesalahan saat memeriksa status.', 'danger')
+        logger.error(f"Error in get_status: {e}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/admin')
-def admin_panel():
-    if 'username' not in session or session.get('role') != 'admin':
-        flash('Akses ditolak. Hanya admin yang bisa mengakses halaman ini.', 'danger')
+# USER HISTORY
+@app.route('/history')
+def user_history():
+    if 'user_id' not in session:
+        flash('Silakan login untuk melihat riwayat.', 'danger')
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    try:
+        data = conn.execute('''
+            SELECT slot_id, booking_time, duration, total_price, end_time
+            FROM booking_history
+            WHERE user_id = ?
+            ORDER BY booking_time DESC
+        ''', (session['user_id'],)).fetchall()
+
+        history = []
+        for b in data:
+            history.append({
+                'slot_id': b['slot_id'],
+                'booking_time': b['booking_time'],
+                'duration': b['duration'],
+                'total_price': b['total_price'],
+                'end_time': b['end_time'],
+            })
+    except Exception as e:
+        logger.error(f"Error user_history: {e}")
+        flash('Gagal memuat riwayat.', 'danger')
+        history = []
+    finally:
+        conn.close()
+
+    return render_template('user_history.html', history=history)
+
+# ADMIN HISTORY
+@app.route('/admin/history')
+def admin_history():
+    if session.get('role') != 'admin':
+        flash('Akses ditolak. Hanya admin.', 'danger')
         return redirect(url_for('dashboard'))
 
     conn = get_db_connection()
     try:
-        bookings = conn.execute('''
-            SELECT bookings.id, bookings.slot_id, bookings.start_time, bookings.total_price, bookings.timestamp, users.username
-            FROM bookings
-            JOIN users ON bookings.user_id = users.id
+        data = conn.execute('''
+            SELECT b.slot_id, b.booking_time, b.duration, b.total_price, b.end_time, u.username
+            FROM booking_history b
+            JOIN users u ON b.user_id = u.id
+            ORDER BY b.booking_time DESC
         ''').fetchall()
+
+        history = []
+        for b in data:
+            history.append({
+                'slot_id': b['slot_id'],
+                'username': b['username'],
+                'booking_time': b['booking_time'],
+                'duration': b['duration'],
+                'total_price': b['total_price'],
+                'end_time': b['end_time'],
+            })
     except Exception as e:
-        logger.error(f"Error in admin_panel: {e}")
-        flash('Terjadi kesalahan saat memuat data booking.', 'danger')
+        logger.error(f"Error admin_history: {e}")
+        flash('Gagal memuat riwayat.', 'danger')
+        history = []
+    finally:
+        conn.close()
+
+    return render_template('admin_history.html', history=history)
+
+# ADMIN PANEL
+@app.route('/admin')
+def admin_panel():
+    if session.get('role') != 'admin':
+        flash('Akses ditolak. Hanya admin.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    conn = get_db_connection()
+    try:
+        data = conn.execute('''
+            SELECT b.id, b.slot_id, b.booking_time, b.duration, b.remaining_duration, b.total_price, b.timestamp, u.username
+            FROM bookings b
+            JOIN users u ON b.user_id = u.id
+        ''').fetchall()
+
+        bookings = []
+        for b in data:
+            bookings.append({
+                'id': b['id'],
+                'slot_id': b['slot_id'],
+                'booking_time': b['booking_time'],
+                'duration': b['duration'],
+                'remaining_duration': b['remaining_duration'],
+                'total_price': b['total_price'],
+                'timestamp': b['timestamp'],
+                'username': b['username'],
+            })
+    except Exception as e:
+        logger.error(f"Error admin_panel: {e}")
+        flash('Gagal memuat data.', 'danger')
         bookings = []
     finally:
         conn.close()
@@ -408,22 +441,107 @@ def admin_panel():
 
 @app.route('/admin/unbook/<int:booking_id>', methods=['POST'])
 def admin_unbook(booking_id):
-    if 'username' not in session or session.get('role') != 'admin':
+    if session.get('role') != 'admin':
         flash('Akses ditolak.', 'danger')
         return redirect(url_for('dashboard'))
 
     conn = get_db_connection()
     try:
-        conn.execute('DELETE FROM bookings WHERE id = ?', (booking_id,))
+        # Ambil data booking sebelum dihapus
+        booking = conn.execute(
+            'SELECT user_id, slot_id, booking_time, duration, total_price FROM bookings WHERE id = ?',
+            (booking_id,)
+        ).fetchone()
+
+        if booking:
+            # Simpan ke booking_history
+            end_time = datetime.now().strftime('%Y-%m-%d %H:%M')
+            conn.execute(
+                'INSERT INTO booking_history (user_id, slot_id, booking_time, duration, total_price, end_time) '
+                'VALUES (?, ?, ?, ?, ?, ?)',
+                (booking['user_id'], booking['slot_id'], booking['booking_time'], booking['duration'], booking['total_price'], end_time)
+            )
+
+        # Hapus booking
+        conn.execute(
+            'DELETE FROM bookings WHERE id = ?',
+            (booking_id,)
+        )
         conn.commit()
-        flash('Booking berhasil dihapus.', 'info')
+        flash('Booking dihapus oleh admin.', 'info')
     except Exception as e:
-        logger.error(f"Error in admin_unbook: {e}")
-        flash('Terjadi kesalahan saat menghapus booking.', 'danger')
+        logger.error(f"Error admin_unbook: {e}")
+        flash('Gagal menghapus.', 'danger')
     finally:
         conn.close()
 
     return redirect(url_for('admin_panel'))
 
+# ADMIN USERS - Menampilkan dan Menambah User
+@app.route('/admin/users', methods=['GET', 'POST'])
+def admin_users():
+    if session.get('role') != 'admin':
+        flash('Akses ditolak. Hanya admin.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    conn = get_db_connection()
+    try:
+        if request.method == 'POST':
+            username = request.form['username']
+            password = request.form['password']
+            hashed_password = generate_password_hash(password)
+
+            conn.execute(
+                'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+                (username, hashed_password, 'user')
+            )
+            conn.commit()
+            flash(f'User {username} berhasil ditambahkan.', 'success')
+
+        # Ambil semua user
+        users = conn.execute('SELECT id, username, role FROM users').fetchall()
+    except sqlite3.IntegrityError:
+        flash('Username sudah dipakai!', 'danger')
+        users = conn.execute('SELECT id, username, role FROM users').fetchall()
+    except Exception as e:
+        logger.error(f"Error admin_users: {e}")
+        flash('Terjadi kesalahan.', 'danger')
+        users = []
+    finally:
+        conn.close()
+
+    return render_template('admin_users.html', users=users)
+
+# DELETE USER
+@app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
+def delete_user(user_id):
+    if session.get('role') != 'admin':
+        flash('Akses ditolak. Hanya admin.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    conn = get_db_connection()
+    try:
+        # Jangan hapus user admin
+        user = conn.execute('SELECT username FROM users WHERE id = ?', (user_id,)).fetchone()
+        if user['username'] == 'admin':
+            flash('Tidak bisa menghapus user admin!', 'danger')
+        else:
+            # Hapus booking terkait terlebih dahulu
+            conn.execute('DELETE FROM bookings WHERE user_id = ?', (user_id,))
+            # Hapus riwayat booking
+            conn.execute('DELETE FROM booking_history WHERE user_id = ?', (user_id,))
+            # Hapus user
+            conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+            conn.commit()
+            flash('User berhasil dihapus.', 'info')
+    except Exception as e:
+        logger.error(f"Error delete_user: {e}")
+        flash('Gagal menghapus user.', 'danger')
+    finally:
+        conn.close()
+
+    return redirect(url_for('admin_users'))
+
+# RUN FLASK
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=81)
+    app.run(debug=True, host='0.0.0.0', port=5000)

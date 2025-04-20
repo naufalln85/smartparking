@@ -7,32 +7,31 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body>
-  <div id="loadingScreen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;display:flex;align-items:center;justify-content:center;z-index:10000;transition:opacity 0.5s ease;">
-    <div style="text-align:center;">
-      <svg xmlns="http://www.w3.org/2000/svg" style="margin:auto; background:none;" width="60" height="60" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid">
-        <circle cx="50" cy="50" fill="none" stroke="#007bff" stroke-width="10" r="35" stroke-dasharray="164.93361431346415 56.97787143782138">
-          <animateTransform attributeName="transform" type="rotate" repeatCount="indefinite" dur="0.9s" values="0 50 50;360 50 50" keyTimes="0;1"></animateTransform>
-        </circle>
-      </svg>
-      <p style="font-family:'Poppins', sans-serif;font-size:18px;margin-top:10px;color:#007bff;">Loading Smart Parking...</p>
-    </div>
-  </div>
-
   <div class="dashboard">
     <header>
       <h1>Smart Parking</h1>
       {% if session['username'] %}
-        <p>Selamat datang, {{ session['username'] }} | <a href="{{ url_for('logout') }}">Logout</a></p>
+        <p>Selamat datang, {{ session['username'] }} | <a href="{{ url_for('user_history' if session['role'] != 'admin' else 'admin_history') }}" class="top-btn">History</a> 
       {% endif %}
     </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
 
     <div class="top-bar">
       <div class="login-register-box">
         {% if session.get('username') %}
           <span class="greeting">👋 {{ session['username'] }}</span>
+          <a href="{{ url_for('user_history' if session['role'] != 'admin' else 'admin_history') }}" class="top-btn">History</a>
           <a href="{{ url_for('logout') }}" class="top-btn">Logout</a>
           {% if session['username'] == 'admin' %}
             <div class="admin-link">
@@ -63,15 +62,15 @@
 
     {% if session['user_id'] %}
       <div id="remainingTime" class="remaining-time" style="display: none; text-align: center; margin: 20px 0; font-weight: bold; color: #007bff;">
-        Sisa Waktu Booking: <span id="timeLeft"></span>
+        Sisa Waktu: <span id="timeLeft"></span>
       </div>
     {% endif %}
 
     <div class="legend">
       <span class="dot filled"></span> Terisi
       <span class="dot empty"></span> Kosong
-      <span class="dot dibooking"></span> Dibooking
-      <span class="dot" style="background-color:#007bff;"></span> Booking Anda
+      <span class="dot booked"></span> Dibooking
+      <span class="dot booked-own"></span> Booking Anda
     </div>
 
     <div class="slot-area">
@@ -104,8 +103,15 @@
       <div class="modal-icon">⚠️</div>
       <p id="modalText">Apakah Anda yakin?</p>
       <div id="bookingForm" style="display: none;">
-        <label for="flatpickr-input">Waktu Penempatan:</label>
-        <input type="text" id="flatpickr-input" name="start_time" required>
+        <div class="duration-input-group">
+          <label for="hours-input">⏳ Durasi:</label>
+          <div class="input-wrapper">
+            <input type="number" id="hours-input" name="hours" min="0" max="24" value="0" required>
+            <span>jam</span>
+            <input type="number" id="minutes-input" name="minutes" min="0" max="59" value="0" required>
+            <span>menit</span>
+          </div>
+        </div>
         <p id="totalPrice">Total: Rp0</p>
       </div>
       <div class="modal-buttons">
@@ -115,7 +121,6 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 </body>
 </html>

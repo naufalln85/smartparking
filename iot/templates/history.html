@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>History Booking - Smart Parking</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      margin: 0;
+      background-color: #f5f5f5;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 40px auto;
+      background-color: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #333;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+    }
+
+    th, td {
+      padding: 14px 16px;
+      border-bottom: 1px solid #ddd;
+      text-align: center;
+    }
+
+    th {
+      background-color: #007bff;
+      color: white;
+      font-weight: 600;
+    }
+
+    tr:hover {
+      background-color: #f1f1f1;
+    }
+
+    .no-history {
+      text-align: center;
+      padding: 30px;
+      font-size: 18px;
+      color: #888;
+    }
+
+    .nav {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .nav a {
+      color: #007bff;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .nav a:hover {
+      text-decoration: underline;
+    }
+
+    /* Responsivitas untuk HP */
+    @media (max-width: 768px) {
+      .container {
+        margin: 20px 10px;
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      table {
+        font-size: 14px;
+      }
+
+      th, td {
+        padding: 10px 12px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 20px;
+      }
+
+      table {
+        font-size: 12px;
+      }
+
+      th, td {
+        padding: 8px 10px;
+      }
+
+      .no-history {
+        font-size: 16px;
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>History Booking Anda</h1>
+
+    {% if history %}
+    <table>
+      <thead>
+        <tr>
+          <th>Slot</th>
+          <th>Waktu Booking</th>
+          <th>Durasi</th>
+          <th>Total Harga</th>
+          <th>Waktu Selesai</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in history %}
+        <tr>
+          <td>{{ h.slot_id }}</td>
+          <td>{{ h.booking_time }}</td>
+          <td>{{ (h.duration // 60) }} jam {{ (h.duration % 60) }} menit</td>
+          <td>Rp{{ h.total_price | format_number }}</td>
+          <td>{{ h.end_time }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <div class="no-history">Belum ada history booking.</div>
+    {% endif %}
+
+    <div class="nav">
+      <a href="{{ url_for('dashboard') }}">⬅️ Kembali ke Dashboard</a>
+    </div>
+  </div>
+</body>
+</html>
