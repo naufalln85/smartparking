@@ -13,7 +13,7 @@
     }
 
     .container {
-      max-width: 900px;
+      max-width: 1000px;
       margin: 40px auto;
       background-color: white;
       padding: 30px;
@@ -98,6 +98,9 @@
         <tr>
           <th>Slot</th>
           <th>Username</th>
+          <th>Waktu Penempatan</th>
+          <th>Total Harga</th>
+          <th>Sisa Waktu</th>
           <th>Aksi</th>
         </tr>
       </thead>
@@ -106,6 +109,9 @@
         <tr>
           <td>{{ booking.slot_id }}</td>
           <td>{{ booking.username }}</td>
+          <td>{{ booking.start_time }}</td>
+          <td>Rp{{ booking.total_price | format_number }}</td>
+          <td data-start-time="{{ booking.start_time }}" class="remaining-time"></td>
           <td>
             <form method="POST" action="{{ url_for('admin_unbook', booking_id=booking.id) }}">
               <button type="submit" class="btn">Lepaskan</button>
@@ -125,5 +131,26 @@
       <a href="{{ url_for('admin_users') }}">Kelola User ➡️</a>
     </div>
   </div>
+
+  <script>
+    function updateRemainingTimes() {
+      document.querySelectorAll('.remaining-time').forEach(cell => {
+        const startTime = cell.dataset.startTime;
+        const start = new Date(startTime);
+        const now = new Date();
+        const diffMs = start - now;
+        if (diffMs <= 0) {
+          cell.textContent = 'Waktu Habis';
+        } else {
+          const hours = Math.floor(diffMs / 3600000);
+          const minutes = Math.floor((diffMs % 3600000) / 60000);
+          cell.textContent = `${hours} jam ${minutes} menit`;
+        }
+      });
+    }
+
+    updateRemainingTimes();
+    setInterval(updateRemainingTimes, 60000); // Update every minute
+  </script>
 </body>
 </html>
