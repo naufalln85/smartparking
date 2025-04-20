@@ -61,7 +61,7 @@
 .modal {
   display: none;
   position: fixed;
-  z-index: 999;
+  z-index: 1000;
   left: 0;
   top: 0;
   width: 100%;
@@ -72,13 +72,16 @@
 
 .modal-content {
   background-color: #fff;
-  margin: 15% auto;
+  margin: 10% auto;
   padding: 30px;
   border-radius: 12px;
   width: 90%;
   max-width: 400px;
   text-align: center;
   font-family: 'Poppins', sans-serif;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 1001;
 }
 
 .modal-icon {
@@ -86,13 +89,23 @@
   margin-bottom: 15px;
 }
 
+.modal-buttons {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
 .modal-buttons button {
-  margin: 10px;
-  padding: 10px 20px;
+  margin: 0;
+  padding: 12px 24px;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   font-weight: bold;
+  transition: background-color 0.3s ease;
+  z-index: 1002;
+  pointer-events: auto;
 }
 
 #modalYes {
@@ -100,7 +113,81 @@
   color: white;
 }
 
+#modalYes:hover {
+  background-color: #218838;
+}
+
 #modalCancel {
   background-color: #dc3545;
   color: white;
+}
+
+#modalCancel:hover {
+  background-color: #c82333;
+}
+
+#bookingForm {
+  margin-top: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#bookingForm label {
+  font-weight: 500;
+  margin-top: 10px;
+  color: #333;
+}
+
+#bookingForm input {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 14px;
+  background-color: #f8f9fa;
+  transition: border-color 0.3s ease;
+}
+
+#bookingForm input:focus {
+  border-color: #007bff;
+  outline: none;
+}
+
+#bookingForm #totalPrice {
+  font-weight: bold;
+  color: #007bff;
+  margin-top: 10px;
+}
+
+.remaining-time {
+  background: #e7f3ff;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Flatpickr Custom Styling */
+.flatpickr-calendar {
+  font-family: 'Poppins', sans-serif;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  z-index: 1003;
+}
+
+.flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange {
+  background: #007bff;
+  border-color: #007bff;
+}
+
+.flatpickr-day.today {
+  border-color: #007bff;
+}
+
+.flatpickr-time input {
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+.flatpickr-time input:focus {
+  border-color: #007bff;
 }
