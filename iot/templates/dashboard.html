@@ -1,283 +1,159 @@
-let notifiedBookings = new Set();
-let currentSlot = 0;
-let isPopupVisible = false;
-
-async function updateSlots() {
-  try {
-    const res = await fetch("/api/status", { cache: "no-cache" });
-    if (!res.ok) {
-      console.error("API status response not OK:", res.status);
-      return;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Parking Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    #popup {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: white;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      z-index: 1000;
     }
-    const data = await res.json();
-    console.log("API status response:", data);
-
-    const statusMap = {
-      "B3": data.v0,
-      "A6": data.v1,
-      "A3": data.v2
-    };
-
-    const bookings = data.bookings || [];
-    const expiredBookings = data.expired_bookings || [];
-    const currentUser = data.current_user;
-
-    // Notifikasi untuk booking yang telah selesai
-    expiredBookings.forEach(expired => {
-      if (expired.user_id === currentUser && !notifiedBookings.has(expired.slot_id)) {
-        showToast(`Waktu booking habis, segera ke slot parkir Anda di Slot ${expired.slot_id}!`, true);
-        notifiedBookings.add(expired.slot_id);
-      }
-    });
-
-    let filledCount = 0;
-    let bookingCount = 0;
-    let userBooking = null;
-
-    document.querySelectorAll('.slot').forEach(slot => {
-      const id = slot.dataset.id;
-      const prevClass = slot.className;
-      slot.classList.remove("empty", "filled", "booked", "booked-own");
-      slot.title = "";
-
-      const isBooked = bookings.find(b => b.slot_id === id);
-      const isFilled = statusMap[id] === "Isi";
-
-      if (isBooked && isBooked.user_id === currentUser) {
-        slot.classList.add("booked-own");
-        slot.title = `Booking Anda: ${Math.floor(isBooked.duration / 60)} jam ${isBooked.duration % 60} menit`;
-        bookingCount++;
-        userBooking = isBooked;
-      } else if (isBooked) {
-        slot.classList.add("booked");
-        slot.title = `Sudah dibooked${isBooked.username ? ' oleh ' + isBooked.username : ''}`;
-        bookingCount++;
-      } else if (isFilled) {
-        slot.classList.add("filled");
-        slot.title = "Terisi";
-        filledCount++;
-      } else {
-        slot.classList.add("empty");
-        slot.title = "Kosong";
-        if (prevClass.includes("booked") || prevClass.includes("booked-own")) {
-          showToast(`Slot ${id} kini kosong (booking selesai)`);
-        }
-      }
-
-      // Pop-up untuk booked dan occupied
-      if (!isPopupVisible && isBooked && isFilled && isBooked.user_id === currentUser) {
-        currentSlot = id === "B3" ? 1 : id === "A6" ? 2 : 3;
-        document.getElementById("popup").style.display = "block";
-        isPopupVisible = true;
-        console.log(`Pop-up shown for Slot ${id}`);
-      }
-
-      slot.onclick = () => {
-        if (slot.classList.contains("empty")) {
-          if (!currentUser) {
-            showModal(`Slot ${id} kosong. Login untuk booking?`, (confirmLogin) => {
-              if (confirmLogin) window.location.href = "/login";
-            });
-          } else {
-            showBookingForm(id);
-          }
-        } else if (slot.classList.contains("booked-own")) {
-          showModal(`Anda telah booking slot ${id}. Lepaskan?`, (confirmUnbook) => {
-            if (confirmUnbook) {
-              const form = document.createElement("form");
-              form.method = "POST";
-              form.action = `/unbook/${id}`;
-              document.body.appendChild(form);
-              form.submit();
-            }
-          });
-        }
-      };
-    });
-
-    // Update summary
-    const totalSlot = document.querySelectorAll('.slot').length;
-    const sisaSlot = totalSlot - filledCount - bookingCount;
-    document.getElementById("total-slot").textContent = totalSlot;
-    document.getElementById("sisa-slot").textContent = sisaSlot;
-    document.getElementById("slot-terisi").textContent = filledCount;
-
-    // Update sisa waktu
-    if (userBooking) {
-      updateRemainingTime(userBooking);
-    } else {
-      document.getElementById("remainingTime").style.display = "none";
-      notifiedBookings.clear();
+    #popup button {
+      padding: 10px 20px;
+      margin: 5px;
+      border: none;
+      border-radius: 5px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
     }
-
-    displayActiveNotifications();
-  } catch (err) {
-    console.error("Gagal ambil status:", err);
-  }
-}
-
-function updateRemainingTime(booking) {
-  const remainingMinutes = booking.remaining_duration;
-  const slotId = booking.slot_id;
-  if (remainingMinutes <= 0) {
-    document.getElementById("remainingTime").style.display = "none";
-    if (!notifiedBookings.has(slotId)) {
-      showToast(`Waktu booking habis, segera ke slot parkir Anda di Slot ${slotId}!`, true);
-      notifiedBookings.add(slotId);
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = `/unbook/${slotId}`;
-      document.body.appendChild(form);
-      form.submit();
+    #popup button:hover {
+      background-color: #0056b3;
     }
-    return;
-  }
-  const hours = Math.floor(remainingMinutes / 60);
-  const minutes = remainingMinutes % 60;
-  document.getElementById("timeLeft").textContent = `${hours} jam ${minutes} menit`;
-  document.getElementById("remainingTime").style.display = "block";
-}
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <header>
+      <h1>Smart Parking</h1>
+      {% if session['username'] %}
+        <p>Selamat datang, {{ session['username'] }} | <a href="{{ url_for('user_history' if session['role'] != 'admin' else 'admin_history') }}" class="top-btn">History</a> 
+      {% endif %}
+    </header>
 
-function showModal(message, callback) {
-  const modal = document.getElementById("customModal");
-  const modalText = document.getElementById("modalText");
-  const yesBtn = document.getElementById("modalYes");
-  const cancelBtn = document.getElementById("modalCancel");
-  const bookingForm = document.getElementById("bookingForm");
-  modalText.textContent = message;
-  bookingForm.style.display = "none";
-  modal.style.display = "flex";
-  const cleanup = () => {
-    modal.style.display = "none";
-    yesBtn.onclick = null;
-    cancelBtn.onclick = null;
-  };
-  yesBtn.onclick = () => { cleanup(); callback(true); };
-  cancelBtn.onclick = () => { cleanup(); callback(false); };
-}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
 
-function showBookingForm(slotId) {
-  const modal = document.getElementById("customModal");
-  const modalText = document.getElementById("modalText");
-  const bookingForm = document.getElementById("bookingForm");
-  const yesBtn = document.getElementById("modalYes");
-  const cancelBtn = document.getElementById("modalCancel");
-  const hoursInput = document.getElementById("hours-input");
-  const minutesInput = document.getElementById("minutes-input");
-  const totalPriceDisplay = document.getElementById("totalPrice");
-  modalText.textContent = `Booking Slot ${slotId}`;
-  bookingForm.style.display = "block";
-  modal.style.display = "flex";
-  hoursInput.value = 0;
-  minutesInput.value = 0;
-  function updateTotalPrice() {
-    const hours = parseInt(hoursInput.value) || 0;
-    const minutes = parseInt(minutesInput.value) || 0;
-    const totalPrice = (hours * 5000) + (minutes * 830);
-    totalPriceDisplay.textContent = `Total: Rp${totalPrice.toLocaleString('id-ID')}`;
-  }
-  hoursInput.oninput = updateTotalPrice;
-  minutesInput.oninput = updateTotalPrice;
-  updateTotalPrice();
-  const cleanup = () => {
-    modal.style.display = "none";
-    bookingForm.style.display = "none";
-    yesBtn.onclick = null;
-    cancelBtn.onclick = null;
-    hoursInput.oninput = null;
-    minutesInput.oninput = null;
-  };
-  yesBtn.onclick = () => {
-    const hours = parseInt(hoursInput.value) || 0;
-    const minutes = parseInt(minutesInput.value) || 0;
-    if (hours === 0 && minutes === 0) {
-      alert("Durasi minimal 1 menit.");
-      return;
-    }
-    if (hours > 24 || (hours === 24 && minutes > 0)) {
-      alert("Durasi maksimal 24 jam.");
-      return;
-    }
-    if (minutes >= 60) {
-      alert("Menit harus kurang dari 60.");
-      return;
-    }
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = `/book/${slotId}`;
-    form.innerHTML = `
-      <input type="hidden" name="hours" value="${hours}">
-      <input type="hidden" name="minutes" value="${minutes}">
-    `;
-    document.body.appendChild(form);
-    form.submit();
-    cleanup();
-  };
-  cancelBtn.onclick = () => { cleanup(); };
-}
+    <div class="top-bar">
+      <div class="login-register-box">
+        {% if session.get('username') %}
+          <span class="greeting">👋 {{ session['username'] }}</span>
+          <a href="{{ url_for('user_history' if session['role'] != 'admin' else 'admin_history') }}" class="top-btn">History</a>
+          <a href="{{ url_for('logout') }}" class="top-btn">Logout</a>
+          {% if session['username'] == 'admin' %}
+            <div class="admin-link">
+              <a href="{{ url_for('admin_panel') }}">🔧 Admin Panel</a>
+            </div>
+          {% endif %}
+        {% else %}
+          <a href="{{ url_for('login') }}" class="top-btn">Login</a>
+          <a href="{{ url_for('register') }}" class="top-btn">Register</a>
+        {% endif %}
+      </div>
+    </div>
 
-function confirmSlot(slot, confirm) {
-  fetch(`/api/confirm_slot/${slot}/${confirm}`, {
-    method: 'POST'
-  })
-  .then(response => response.json())
-  .then(data => {
-    console.log(data.message);
-    document.getElementById("popup").style.display = "none";
-    isPopupVisible = false;
-    sessionStorage.setItem('notification', `Slot ${slot} confirmation: ${confirm}`);
-    showNotification();
-  })
-  .catch(error => console.error("Error confirming slot:", error));
-}
+    <div class="summary">
+      <div class="card">
+        <p>Total Slot</p>
+        <strong id="total-slot">10</strong>
+      </div>
+      <div class="card">
+        <p>Sisa Slot</p>
+        <strong id="sisa-slot">7</strong>
+      </div>
+      <div class="card">
+        <p>Slot Terisi</p>
+        <strong id="slot-terisi">3</strong>
+      </div>
+    </div>
 
-function showToast(message, isImportant = false) {
-  const notification = {
-    message: message,
-    isImportant: isImportant,
-    timestamp: Date.now(),
-    duration: isImportant ? 10000 : 5000
-  };
-  const slotIdMatch = message.match(/Slot (\w+)/);
-  const slotId = slotIdMatch ? slotIdMatch[1] : 'general';
-  sessionStorage.setItem(`notification_${slotId}`, JSON.stringify(notification));
-  displayNotification(notification);
-}
+    {% if session['user_id'] %}
+      <div id="remainingTime" class="remaining-time" style="display: none; text-align: center; margin: 20px 0; font-weight: bold; color: #007bff;">
+        Sisa Waktu: <span id="timeLeft"></span>
+      </div>
+    {% endif %}
 
-function displayNotification(notification) {
-  const toast = document.createElement("div");
-  toast.textContent = notification.message;
-  toast.className = `toast-message ${notification.isImportant ? 'important' : ''}`;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.style.opacity = 1, 100);
-  setTimeout(() => {
-    toast.style.opacity = 0;
-    setTimeout(() => toast.remove(), 500);
-  }, notification.duration);
-}
+    <div class="legend">
+      <span class="dot filled"></span> Terisi
+      <span class="dot empty"></span> Kosong
+      <span class="dot booked"></span> Dibooking
+      <span class="dot booked-own"></span> Booking Anda
+    </div>
 
-function displayActiveNotifications() {
-  for (let i = 0; i < sessionStorage.length; i++) {
-    const key = sessionStorage.key(i);
-    if (key.startsWith('notification_')) {
-      const notification = JSON.parse(sessionStorage.getItem(key));
-      const elapsed = Date.now() - notification.timestamp;
-      if (elapsed >= notification.duration) {
-        sessionStorage.removeItem(key);
-      } else if (!document.querySelector(`.toast-message[data-message="${notification.message}"]`)) {
-        displayNotification(notification);
-      }
-    }
-  }
-}
+    <div class="slot-area">
+      <div class="zone">
+        <h2>Basement / Indoor</h2>
+        <div class="slot-grid indoor">
+          <div class="slot empty" data-id="B1">🚙 B1</div>
+          <div class="slot empty" data-id="B2">🅿️ B2</div>
+          <div class="slot empty" data-id="B3">🚗 B3</div>
+          <div class="slot filled" data-id="B4">🚙 B4</div>
+        </div>
+      </div>
 
-function showNotification() {
-  let notification = sessionStorage.getItem('notification');
-  if (notification) {
-    alert(notification);
-    sessionStorage.removeItem('notification');
-  }
-}
+      <div class="zone">
+        <h2>Outdoor</h2>
+        <div class="slot-grid outdoor">
+          <div class="slot empty" data-id="A1">🚙 A1</div>
+          <div class="slot empty" data-id="A2">🅿️ A2</div>
+          <div class="slot empty" data-id="A3">🚗 A3</div>
+          <div class="slot filled" data-id="A4">🚗 A4</div>
+          <div class="slot filled" data-id="A5">🚗 A5</div>
+          <div class="slot empty" data-id="A6">🚙 A6</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-setInterval(updateSlots, 1000);
-window.onload = updateSlots;
+  <div id="customModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-icon">⚠️</div>
+      <p id="modalText">Apakah Anda yakin?</p>
+      <div id="bookingForm" style="display: none;">
+        <div class="duration-input-group">
+          <label for="hours-input">⏳ Durasi:</label>
+          <div class="input-wrapper">
+            <input type="number" id="hours-input" name="hours" min="0" max="24" value="0" required>
+            <span>jam</span>
+            <input type="number" id="minutes-input" name="minutes" min="0" max="59" value="0" required>
+            <span>menit</span>
+          </div>
+        </div>
+        <p id="totalPrice">Total: Rp0</p>
+      </div>
+      <div class="modal-buttons">
+        <button id="modalYes">Ya</button>
+        <button id="modalCancel">Batal</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="popup">
+    <p>Ini Anda atau bukan?</p>
+    <button onclick="confirmSlot(currentSlot, 'yes')">Ya</button>
+    <button onclick="confirmSlot(currentSlot, 'no')">Tidak</button>
+  </div>
+
+  <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+</html>
