@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Parking Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 40px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        .slot {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            display: inline-block;
+            background-color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .status {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .occupied {
+            color: red;
+        }
+        .empty {
+            color: green;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .book-button {
+            background-color: #28a745;
+        }
+        .book-button:hover {
+            background-color: #218838;
+        }
+        .unbook-button {
+            background-color: #dc3545;
+        }
+        .unbook-button:hover {
+            background-color: #c82333;
+        }
+        #popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+        #popup button {
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Smart Parking Dashboard</h1>
+
+    <div id="slot1" class="slot">
+        <h2>Slot 1</h2>
+        <p>Distance: <span id="slot1_distance">0</span> cm</p>
+        <p class="status">Status: <span id="slot1_status">Unknown</span></p>
+        <p>Booked: <span id="slot1_booked">No</span></p>
+        <button onclick="controlLamp(1, true)">Lamp On</button>
+        <button onclick="controlLamp(1, false)">Lamp Off</button>
+        <button class="book-button" onclick="bookSlot(1)">Book</button>
+        <button class="unbook-button" onclick="unbookSlot(1)">Unbook</button>
+    </div>
+
+    <div id="slot2" class="slot">
+        <h2>Slot 2</h2>
+        <p>Distance: <span id="slot2_distance">0</span> cm</p>
+        <p class="status">Status: <span id="slot2_status">Unknown</span></p>
+        <p>Booked: <span id="slot2_booked">No</span></p>
+        <button onclick="controlLamp(2, true)">Lamp On</button>
+        <button onclick="controlLamp(2, false)">Lamp Off</button>
+        <button class="book-button" onclick="bookSlot(2)">Book</button>
+        <button class="unbook-button" onclick="unbookSlot(2)">Unbook</button>
+    </div>
+
+    <div id="slot3" class="slot">
+        <h2>Slot 3</h2>
+        <p>Distance: <span id="slot3_distance">0</span> cm</p>
+        <p class="status">Status: <span id="slot3_status">Unknown</span></p>
+        <p>Booked: <span id="slot3_booked">No</span></p>
+        <button onclick="controlLamp(3, true)">Lamp On</button>
+        <button onclick="controlLamp(3, false)">Lamp Off</button>
+        <button class="book-button" onclick="bookSlot(3)">Book</button>
+        <button class="unbook-button" onclick="unbookSlot(3)">Unbook</button>
+    </div>
+
+    <div id="popup">
+        <p>Ini Anda atau bukan?</p>
+        <button onclick="confirmSlot(currentSlot, 'yes')">Ya</button>
+        <button onclick="confirmSlot(currentSlot, 'no')">Tidak</button>
+    </div>
+
+    <script src="/static/dashboard.js"></script>
+</body>
+</html>
