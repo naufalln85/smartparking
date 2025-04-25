@@ -13,9 +13,9 @@ async function updateSlots() {
     console.log("API status response:", data);
 
     const slotMap = {
-      "B3": { occupied: data.slot1.occupied, booked: data.slot1.booked },
-      "A6": { occupied: data.slot2.occupied, booked: data.slot2.booked },
-      "A3": { occupied: data.slot3.occupied, booked: data.slot3.booked }
+      "B2": { occupied: data.slot1.occupied, booked: data.slot1.booked },
+      "A1": { occupied: data.slot2.occupied, booked: data.slot2.booked },
+      "A4": { occupied: data.slot3.occupied, booked: data.slot3.booked }
     };
 
     const bookings = data.bookings || [];
@@ -68,7 +68,7 @@ async function updateSlots() {
 
       // Pop-up untuk booked dan occupied
       if (!isPopupVisible && (isBooked || isBookedThingsBoard) && isOccupied && (!isBooked || isBooked.user_id === currentUser)) {
-        currentSlot = id === "B3" ? 1 : id === "A6" ? 2 : 3;
+        currentSlot = id === "B2" ? 1 : id === "A1" ? 2 : id === "A4" ? 3 : 0;
         document.getElementById("popup").style.display = "block";
         isPopupVisible = true;
         console.log(`Pop-up shown for Slot ${id}`);
