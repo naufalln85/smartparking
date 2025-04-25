@@ -227,8 +227,9 @@ def book_slot(slot_id):
 
         # Update ThingsBoard
         token = get_valid_token()
-        booked_key = f"slot{slot_id.lower().replace('b', '1').replace('a', '2')}_booked"
-        lamp_key = f"lamp{slot_id.lower().replace('b', '1').replace('a', '2')}"
+        slot_number = '1' if slot_id == 'B2' else '2' if slot_id == 'A1' else '3' if slot_id == 'A4' else '0'
+        booked_key = f"slot{slot_number}_booked"
+        lamp_key = f"lamp{slot_number}"
         payload = {booked_key: True, lamp_key: False}
         resp = requests.post(
             f"{THINGSBOARD_URL}/api/plugins/telemetry/DEVICE/{DEVICE_TOKEN}/SHARED_SCOPE",
@@ -266,8 +267,9 @@ def unbook_slot(slot_id):
     try:
         # Update ThingsBoard
         token = get_valid_token()
-        booked_key = f"slot{slot_id.lower().replace('b', '1').replace('a', '2')}_booked"
-        lamp_key = f"lamp{slot_id.lower().replace('b', '1').replace('a', '2')}"
+        slot_number = '1' if slot_id == 'B2' else '2' if slot_id == 'A1' else '3' if slot_id == 'A4' else '0'
+        booked_key = f"slot{slot_number}_booked"
+        lamp_key = f"lamp{slot_number}"
         payload = {booked_key: False, lamp_key: True}
         resp = requests.post(
             f"{THINGSBOARD_URL}/api/plugins/telemetry/DEVICE/{DEVICE_TOKEN}/SHARED_SCOPE",
@@ -334,8 +336,8 @@ def get_status():
         conn = get_db_connection()
         bookings = conn.execute('SELECT slot_id FROM bookings').fetchall()
         slot_ids = [booking['slot_id'] for booking in bookings]
-        for slot_id in ['B3', 'A6', 'A3']:
-            slot_number = '1' if slot_id == 'B3' else '2' if slot_id == 'A6' else '3'
+        for slot_id in ['B2', 'A1', 'A4']:
+            slot_number = '1' if slot_id == 'B2' else '2' if slot_id == 'A1' else '3'
             booked_key = f"slot{slot_number}_booked"
             is_booked = slot_id in slot_ids
             if booked[booked_key] != is_booked:
@@ -370,7 +372,7 @@ def get_status():
                 conn.execute('DELETE FROM bookings WHERE id = ?', (r['id'],))
                 expired_bookings.append({'slot_id': r['slot_id'], 'user_id': r['user_id']})
                 # Update ThingsBoard untuk slot yang expired
-                slot_number = '1' if r['slot_id'] == 'B3' else '2' if r['slot_id'] == 'A6' else '3'
+                slot_number = '1' if r['slot_id'] == 'B2' else '2' if r['slot_id'] == 'A1' else '3' if r['slot_id'] == 'A4' else '0'
                 booked_key = f"slot{slot_number}_booked"
                 lamp_key = f"lamp{slot_number}"
                 payload = {booked_key: False, lamp_key: True}
@@ -502,8 +504,9 @@ def admin_unbook(booking_id):
         if booking:
             slot_id = booking['slot_id']
             token = get_valid_token()
-            booked_key = f"slot{slot_id.lower().replace('b', '1').replace('a', '2')}_booked"
-            lamp_key = f"lamp{slot_id.lower().replace('b', '1').replace('a', '2')}"
+            slot_number = '1' if slot_id == 'B2' else '2' if slot_id == 'A1' else '3' if slot_id == 'A4' else '0'
+            booked_key = f"slot{slot_number}_booked"
+            lamp_key = f"lamp{slot_number}"
             payload = {booked_key: False, lamp_key: True}
             resp = requests.post(
                 f"{THINGSBOARD_URL}/api/plugins/telemetry/DEVICE/{DEVICE_TOKEN}/SHARED_SCOPE",
@@ -596,7 +599,7 @@ def confirm_slot(slot, confirm):
                 lamp_key: True
             }
             # Auto-unbook slot dari database
-            slot_id = 'B3' if slot == 1 else 'A6' if slot == 2 else 'A3'
+            slot_id = 'B2' if slot == 1 else 'A1' if slot == 2 else 'A4'
             conn = get_db_connection()
             booking = conn.execute(
                 'SELECT user_id, slot_id, booking_time, duration, total_price FROM bookings WHERE slot_id = ?',
@@ -630,4 +633,4 @@ def confirm_slot(slot, confirm):
         return jsonify({"error": "Failed to confirm slot"}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=80)
+    app.run(debug=True, host='0.0.0.0', port=81)
