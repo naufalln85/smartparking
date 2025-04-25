@@ -40,7 +40,7 @@
     <header>
       <h1>Smart Parking</h1>
       {% if session['username'] %}
-        <p>Selamat datang, {{ session['username'] }} | <a href="{{ url_for('user_history' if session['role'] != 'admin' else 'admin_history') }}" class="top-btn">History</a> 
+        <p>Selamat datang, {{ session['username'] }} | <a href="{{ url_for('user_history' if session['role'] != 'admin' else 'admin_history') }}" class="top-btn">History</a>
       {% endif %}
     </header>
 
@@ -104,22 +104,22 @@
       <div class="zone">
         <h2>Basement / Indoor</h2>
         <div class="slot-grid indoor">
-          <div class="slot empty" data-id="B1">🚙 B1</div>
-          <div class="slot empty" data-id="B2">🅿️ B2</div>
-          <div class="slot empty" data-id="B3">🚗 B3</div>
+          <div class="slot empty" data-id="B3">🚙 B3</div>
           <div class="slot filled" data-id="B4">🚙 B4</div>
+          <div class="slot empty" data-id="B2">🅿️ B2</div>
+          <div class="slot empty" data-id="B1">🚗 B1</div>
         </div>
       </div>
 
       <div class="zone">
         <h2>Outdoor</h2>
         <div class="slot-grid outdoor">
-          <div class="slot empty" data-id="A1">🚙 A1</div>
-          <div class="slot empty" data-id="A2">🅿️ A2</div>
-          <div class="slot empty" data-id="A3">🚗 A3</div>
-          <div class="slot filled" data-id="A4">🚗 A4</div>
+          <div class="slot empty" data-id="A4">🚗 A4</div>
           <div class="slot filled" data-id="A5">🚗 A5</div>
           <div class="slot empty" data-id="A6">🚙 A6</div>
+          <div class="slot empty" data-id="A3">🚗 A3</div>
+          <div class="slot empty" data-id="A2">🅿️ A2</div>
+          <div class="slot empty" data-id="A1">🚙 A1</div>
         </div>
       </div>
     </div>
